@@ -53,6 +53,7 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:16px;paddi
 
 /* scenario rail */
 .rail{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.rail>*{min-width:0}
 .scen{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .sbtn{flex:none;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:9px 12px;color:var(--ink);cursor:pointer;min-width:150px;transition:border-color .15s,transform .15s}
 .sbtn:hover{border-color:var(--ink-3);transform:translateY(-1px)}
@@ -278,7 +279,7 @@ footer{font-size:10.5px;color:var(--ink-3);line-height:1.6;padding:0 6px}
   .lower{grid-template-columns:1fr}
   .flow-body{grid-template-columns:minmax(0,1fr) 150px}
   .flow-foot,.fc-stats,.edk,.stk{grid-template-columns:1fr 1fr}
-  .rail{grid-template-columns:1fr}
+  .rail{grid-template-columns:minmax(0,1fr)}
   .tower-top{min-height:420px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
