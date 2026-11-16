@@ -1,0 +1,1288 @@
+<title>Vitalis Command Center</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: hospital command console. Scenario rail → flow (2/3) + 3D hospital floor (1/3, tall) → instruments → analytics lab (trend+forecast, insights, heatmap) → levers + AI analyst. Single deliberate dark look. */
+:root{
+  --ground:#141518; --shell:#1a1b1f; --panel:#1f2024; --panel-2:#26272c; --line:#33343a;
+  --ink:#f2f1ee; --ink-2:#a6a6ad; --ink-3:#6e6f76;
+  --accent:#ff5b1f; --accent-2:#ff8a5c; --glow:rgba(255,91,31,.35);
+  --ok:#3ecf8e; --warn:#f2b33d; --crit:#ff4d4d; --cool:#6aa8ff;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 28px}
+.shell{max-width:1400px;margin:0 auto;background:var(--shell);border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px}
+button{font-family:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;margin:0;text-wrap:balance}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.h-card{font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+.sub{color:var(--ink-3);font-size:11.5px;margin:4px 0 0}
+
+/* tooltip */
+#tip{position:fixed;z-index:50;pointer-events:none;background:rgba(14,15,18,.96);border:1px solid #45464d;border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;min-width:150px;max-width:260px;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;transition:opacity .1s}
+#tip.on{opacity:1}
+#tip b{font-family:var(--f-display);font-weight:500;font-size:12px;display:block;margin-bottom:4px}
+#tip .r{display:flex;justify-content:space-between;gap:14px;font-family:var(--f-mono);font-size:11px;color:var(--ink-2)}
+#tip .r span:last-child{color:var(--ink)}
+#tip em{display:block;font-style:normal;color:var(--ink-3);font-size:10.5px;margin-top:5px}
+
+/* nav */
+nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 6px 4px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:600;letter-spacing:.06em;font-size:15px}
+.brand small{font-family:var(--f-body);font-weight:500;font-size:11px;color:var(--ink-3);letter-spacing:.02em}
+.unit-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.utab{font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);background:transparent;border:1px solid transparent;border-radius:999px;padding:8px 13px;cursor:pointer}
+.utab:hover{color:var(--ink-2);border-color:var(--line)}
+.utab[aria-pressed="true"]{color:var(--ink);background:var(--panel-2);border-color:rgba(255,91,31,.55);box-shadow:0 0 12px var(--glow) inset}
+.src-pill{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
+
+/* scenario rail */
+.rail{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.scen{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.sbtn{flex:none;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:9px 12px;color:var(--ink);cursor:pointer;min-width:150px;transition:border-color .15s,transform .15s}
+.sbtn:hover{border-color:var(--ink-3);transform:translateY(-1px)}
+.sbtn b{display:block;font-size:12px;font-weight:600}
+.sbtn span{font-size:10.5px;color:var(--ink-3);font-family:var(--f-mono)}
+.sbtn em{font-style:normal;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-2)}
+.sbtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset,0 0 18px var(--glow)}
+.weekbox{display:flex;align-items:center;gap:12px;grid-column:1 / -1}
+.weekbox input{flex:1;accent-color:var(--accent);min-width:0}
+.weekbox output{font-family:var(--f-mono);font-size:12px;min-width:140px;text-align:right}
+.play{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:999px;width:34px;height:34px;cursor:pointer;flex:none}
+.play[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;position:relative;overflow:hidden;min-width:0}
+.dotted{background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:14px 14px}
+.flow{grid-column:1 / span 2}
+.tower{grid-column:3;grid-row:1 / span 2;display:flex;flex-direction:column;padding:0}
+.lower{grid-column:1 / span 2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+
+/* flow */
+.flow-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.big{font-size:clamp(26px,3.3vw,44px);line-height:.98;text-transform:uppercase}
+.week-tag{text-align:right}
+.week-tag b{display:block;font-family:var(--f-mono);font-size:13px}
+.flow-body{display:grid;grid-template-columns:minmax(0,1fr) 220px;margin-top:4px}
+.sankey-wrap{position:relative;min-width:0}
+.sankey-wrap svg{width:100%;height:auto;display:block}
+.sankey-wrap path[data-k]{transition:opacity .15s}
+.sankey-wrap svg:hover path[data-k]{opacity:.55}
+.sankey-wrap svg path[data-k]:hover{opacity:1}
+.src-label{position:absolute;left:0;top:50%;transform:translateY(-50%);padding-left:12px;pointer-events:none}
+.src-label b{display:block;font-family:var(--f-display);font-weight:500;font-size:clamp(12px,1.4vw,16px)}
+.src-label span{font-size:11px;color:var(--ink-2);font-family:var(--f-mono)}
+.dests{display:flex;flex-direction:column;justify-content:space-around;border-left:1px solid var(--line);padding-left:12px}
+.dest{display:flex;align-items:center;justify-content:space-between;gap:10px;background:none;border:1px solid transparent;color:inherit;text-align:left;padding:8px 8px;border-radius:10px;cursor:pointer;width:100%}
+.dest:hover{background:var(--panel-2);border-color:var(--line)}
+.dest .t{font-size:11.5px;font-weight:600}
+.dest .v{font-size:10.5px;color:var(--ink-2);font-family:var(--f-mono)}
+.dest:not(.on) .t{color:var(--ink-2)}
+.dest svg{flex:none}
+.flow-foot{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.kpi{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:help}
+.kpi .stat{font-family:var(--f-display);font-size:22px;line-height:1.1;margin-top:4px}
+.kpi .stat small{font-size:10px;font-family:var(--f-body);color:var(--ink-2);margin-left:3px}
+.delta{font-family:var(--f-mono);font-size:10.5px;margin-top:3px}
+.up{color:var(--crit)} .dn{color:var(--ok)} .flat{color:var(--ink-3)}
+
+/* tower / 3D */
+.tower-top{position:relative;flex:1;min-height:520px}
+#three{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#three.hot{cursor:pointer}
+.tower-head{position:absolute;top:14px;left:14px;right:14px;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.tower-head h2{font-size:clamp(16px,1.7vw,22px);letter-spacing:.04em;text-transform:uppercase;text-shadow:0 2px 16px #000}
+.tower-head .lbl{display:block;margin-top:4px}
+.vbtns{display:flex;gap:6px;pointer-events:auto}
+.vbtn{background:rgba(20,21,24,.8);border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:6px 11px;font-size:10.5px;font-weight:600;cursor:pointer;backdrop-filter:blur(6px)}
+.vbtn:hover{color:var(--ink);border-color:var(--ink-3)}
+.vbtn[aria-pressed="true"]{color:var(--ink);border-color:var(--accent)}
+.zlabel{position:absolute;z-index:2;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer;background:rgba(18,19,22,.85);border:1px solid #45464d;border-radius:10px;padding:5px 9px;font-size:10.5px;white-space:nowrap;backdrop-filter:blur(4px);transition:border-color .15s}
+.zlabel b{font-weight:600}
+.zlabel span{font-family:var(--f-mono);margin-left:6px}
+.zlabel.sel{border-color:var(--accent);box-shadow:0 0 14px var(--glow)}
+.zlabel:hover{border-color:var(--ink-2)}
+.bedcard{position:absolute;z-index:4;left:14px;bottom:44px;width:min(250px,calc(100% - 28px));background:rgba(14,15,18,.94);border:1px solid var(--accent);border-radius:14px;padding:12px 14px;font-size:12px;box-shadow:0 0 24px var(--glow)}
+.bedcard .r{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;color:var(--ink-2);padding:3px 0;border-bottom:1px dashed #33343a}
+.bedcard .r span:last-child{color:var(--ink)}
+.bedcard header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.bedcard header b{font-family:var(--f-display);font-weight:500}
+.bedcard button{background:none;border:none;color:var(--ink-2);cursor:pointer;font-size:16px;line-height:1}
+.bedcard em{display:block;font-style:normal;color:var(--ink-3);font-size:10px;margin-top:6px}
+.tower-legend{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:12px;font-size:10.5px;color:var(--ink-2);z-index:2;pointer-events:none;flex-wrap:wrap;padding:0 10px}
+.tower-legend i{display:inline-block;width:9px;height:6px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.three-fallback{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:12px}
+.tower-bot{border-top:1px solid var(--line);padding:16px 20px 18px;display:flex;flex-direction:column;align-items:center}
+.gauge{width:100%;max-width:250px}
+.gauge-row{display:flex;justify-content:space-between;width:100%;font-size:11px;color:var(--ink-2);margin-top:4px;gap:8px}
+.gauge-row b{color:var(--ink)}
+.status{margin-top:8px;font-size:11px;font-weight:600;border-radius:999px;padding:5px 12px;border:1px solid}
+.st-ok{color:var(--ok);border-color:rgba(62,207,142,.4)} .st-warn{color:var(--warn);border-color:rgba(242,179,61,.4)} .st-crit{color:var(--crit);border-color:rgba(255,77,77,.5)}
+
+/* quality */
+.kv{display:grid;grid-template-columns:1fr 1fr;margin-top:12px}
+.kv button{all:unset;box-sizing:border-box;padding:9px 4px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:6px;cursor:pointer}
+.kv button:hover{background:var(--panel-2)}
+.kv button:focus-visible{outline:2px solid var(--accent)}
+.kv button:nth-child(odd){border-right:1px solid var(--line);padding-right:10px}
+.kv button:nth-child(even){padding-left:10px}
+.kv .lbl{display:block;margin-bottom:3px;text-transform:none;letter-spacing:.01em;font-weight:500;font-size:10.5px}
+.kv b{font-size:13px}
+.tag{font-family:var(--f-mono);font-size:9.5px}
+.good{color:var(--ok)} .bad{color:var(--crit)} .mid{color:var(--warn)}
+
+/* ED card */
+.ed{background:linear-gradient(180deg,#8d8a86,#6b6865);border-color:#9a9792;color:#151515;display:flex;flex-direction:column}
+.ed .lbl{color:#383634}
+.ring-wrap{position:relative;display:grid;place-items:center;margin:2px auto 0;width:140px;height:140px}
+.ring-wrap svg{width:140px;height:140px}
+.ring-c{position:absolute;text-align:center}
+.ring-c b{font-family:var(--f-display);font-size:28px;font-weight:500;display:block;line-height:1}
+.ring-c span{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase}
+.ed-tag{position:absolute;top:14px;left:16px;font-family:var(--f-mono);font-size:10.5px;line-height:1.5}
+.ed-foot{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;gap:10px}
+.ed-foot h3{font-size:17px;text-transform:uppercase}
+.ed-pill{background:#2a2928;border-radius:12px;padding:8px 10px;color:var(--ink);font-size:11px;font-weight:700;font-family:var(--f-mono)}
+
+/* rating chip */
+.chip-card{background:#1b1c20;display:flex;flex-direction:column}
+.board{position:relative;flex:1;min-height:170px;display:grid;place-items:center}
+.board svg.traces{position:absolute;inset:0;width:100%;height:100%}
+.chip{position:relative;width:156px;height:140px;border-radius:14px;background:linear-gradient(160deg,#2d2e34,#1a1b1f);border:1px solid #45464d;box-shadow:inset 0 0 0 6px #232429,0 10px 30px rgba(0,0,0,.6);padding:14px;display:flex;flex-direction:column;justify-content:space-between}
+.chip .readout{align-self:center;font-family:var(--f-mono);font-size:15px;font-weight:600;border:1px solid #55565e;border-radius:999px;padding:4px 12px;background:#121316;color:var(--accent-2)}
+.chip .cap{font-family:var(--f-display);font-size:16px;line-height:1.05}
+.chip .cap small{display:block;font-family:var(--f-body);font-size:9px;letter-spacing:.12em;color:var(--ink-2);margin-top:4px}
+.chip-foot{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px;margin-top:8px;font-size:11px;color:var(--ink-2);gap:8px;flex-wrap:wrap}
+.chip-foot b{color:var(--ink)}
+
+/* analytics lab */
+.lab{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px}
+.lab-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{background:none;border:none;color:var(--ink-3);font-size:11px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#16171a}
+#bigTrend{width:100%;height:280px;display:block;margin-top:10px;cursor:crosshair}
+.fc-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.fc-stats div{border-left:2px solid var(--line);padding-left:10px}
+.fc-stats b{display:block;font-family:var(--f-mono);font-size:15px;margin-top:2px}
+.insights{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:470px;overflow-y:auto;padding-right:4px}
+.ins{border:1px solid var(--line);border-left:3px solid var(--sev,var(--ink-3));border-radius:12px;padding:11px 12px;background:var(--panel-2);cursor:pointer;text-align:left;color:inherit;width:100%;transition:border-color .15s,transform .15s}
+.ins:hover{transform:translateX(2px);border-color:var(--ink-3)}
+.ins .k{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ins .k span{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--sev,var(--ink-3));font-weight:700}
+.ins .k i{font-style:normal;font-family:var(--f-mono);font-size:10px;color:var(--ink-3)}
+.ins h4{margin:5px 0 3px;font-size:13px;font-weight:600;line-height:1.35}
+.ins p{margin:0;font-size:11.5px;color:var(--ink-2);line-height:1.5}
+.heat-wrap{overflow-x:auto}
+#heat{display:block;min-width:820px;width:100%;height:auto}
+#heat rect.cell{cursor:pointer}
+#heat rect.cell:hover{stroke:#fff;stroke-width:1.5}
+.heat-legend{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--ink-3);margin-top:8px}
+.heat-legend span.bar{width:160px;height:8px;border-radius:4px;background:linear-gradient(90deg,#24324a,#3d6db3,#f2b33d,#ff5b1f,#ff2d2d)}
+
+/* ED pipeline */
+.edk{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:14px}
+.edgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;margin-top:14px;align-items:start}
+#edDays{width:100%;height:auto;display:block}
+.edlegend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--ink-2);margin-bottom:6px}
+.edlegend i{display:inline-block;width:10px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.edtable{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.edtable .tr{all:unset;box-sizing:border-box;display:grid;grid-template-columns:1.4fr repeat(5,1fr);gap:4px;padding:8px 12px;font-family:var(--f-mono);font-size:11.5px;border-top:1px solid var(--line);cursor:pointer}
+.edtable .tr span:not(:first-child){text-align:right}
+.edtable .tr:hover{background:var(--panel-2)}
+.edtable .tr.on{background:rgba(255,91,31,.08);box-shadow:inset 3px 0 0 var(--accent)}
+.edtable .tr:focus-visible{outline:2px solid var(--accent)}
+.edtable .th{cursor:default;border-top:none;color:var(--ink-3);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;font-family:var(--f-body);font-weight:600}
+.edtable .th:hover{background:none}
+
+/* staffing */
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:auto}
+.shiftseg .vbtn{padding:5px 9px}
+.floors{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3;display:flex;flex-direction:column;gap:5px;background:rgba(20,21,24,.75);border:1px solid var(--line);border-radius:14px;padding:6px;backdrop-filter:blur(6px)}
+.floors button{width:30px;height:30px;border-radius:50%;border:1px solid #45464d;background:#202126;color:var(--ink-2);font:600 11px var(--f-mono);cursor:pointer}
+.floors button:hover{color:var(--ink);border-color:var(--ink-2)}
+.floors button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1a0d06;box-shadow:0 0 12px var(--glow)}
+.floors button:last-child{font-size:9px}
+.lvlabel{position:absolute;z-index:2;transform:translate(0,-50%);background:none;border:none;color:var(--ink-3);font:600 9.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;white-space:nowrap;padding:2px 4px}
+.lvlabel:hover,.lvlabel.sel{color:var(--accent-2)}
+.stk{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:14px}
+.sttable{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+.sttable .tr{box-sizing:border-box;display:grid;grid-template-columns:1.6fr .8fr .7fr .7fr .7fr 1fr .7fr 2.1fr;gap:6px;align-items:center;padding:9px 12px;font-family:var(--f-mono);font-size:11.5px;border-top:1px solid var(--line);cursor:pointer;min-width:760px}
+.sttable .tr>span:not(:first-child):not(:last-child){text-align:right}
+.sttable .tr:hover{background:var(--panel-2)}
+.sttable .tr.on{background:rgba(255,91,31,.08);box-shadow:inset 3px 0 0 var(--accent)}
+.sttable .tr:focus-visible{outline:2px solid var(--accent)}
+.sttable .th{cursor:default;border-top:none;color:var(--ink-3);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;font-family:var(--f-body);font-weight:600}
+.sttable .th:hover{background:none}
+.shchips{display:flex;gap:4px;justify-content:flex-end}
+.shchips button{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:4px 7px;font:600 10.5px var(--f-mono);cursor:pointer;min-width:58px}
+.shchips button.cur{outline:1.5px solid var(--ink)}
+.ratio-bar{height:6px;border-radius:3px;background:#2a2b30;position:relative;margin-top:4px}
+.ratio-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+
+/* analyst row */
+.analyst{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px}
+.lever{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin-top:14px}
+.lever label{font-size:12px;font-weight:600}
+.lever output{font-family:var(--f-mono);font-size:12px;color:var(--accent-2)}
+.lever input{grid-column:1 / -1;accent-color:var(--accent);width:100%}
+.lever small{grid-column:1 / -1;color:var(--ink-3);font-size:10.5px}
+.proj{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.proj div{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.proj b{display:block;font-family:var(--f-display);font-size:18px;font-weight:500;margin-top:4px}
+.reset{margin-top:12px;background:none;border:1px solid var(--line);color:var(--ink-2);border-radius:999px;padding:7px 14px;font-size:11px;cursor:pointer}
+.chat{display:flex;flex-direction:column;min-height:460px;max-height:580px}
+.chat-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.live{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.live.on i{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.log{flex:1;overflow-y:auto;margin-top:12px;display:flex;flex-direction:column;gap:10px;padding-right:4px;min-height:0}
+.msg{max-width:88%;padding:10px 13px;border-radius:14px;line-height:1.5;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;background:var(--accent);color:#1a0d06;border-bottom-right-radius:4px;font-weight:500}
+.msg.ai{align-self:flex-start;background:var(--panel-2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.sys{align-self:center;font-size:11px;color:var(--ink-3);background:none;padding:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chips button{background:transparent;border:1px dashed var(--line);color:var(--ink-2);border-radius:999px;padding:6px 11px;font-size:11px;cursor:pointer}
+.chips button:hover{border-color:var(--accent);color:var(--ink)}
+.composer{display:flex;gap:8px;margin-top:10px}
+.composer textarea{flex:1;resize:none;height:44px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:11px 12px;font:13px var(--f-body)}
+.send{background:var(--accent);color:#1a0d06;border:none;border-radius:12px;padding:0 18px;font-weight:700;cursor:pointer}
+footer{font-size:10.5px;color:var(--ink-3);line-height:1.6;padding:0 6px}
+
+@media (max-width:1100px){
+  .grid{grid-template-columns:1fr 1fr}
+  .flow,.lower{grid-column:1 / -1}
+  .tower{grid-column:1 / -1;grid-row:auto}
+  .lab,.analyst,.edgrid{grid-template-columns:1fr}
+  .edk,.stk{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .shell{padding:12px}
+  .grid{grid-template-columns:1fr}
+  .lower{grid-template-columns:1fr}
+  .flow-body{grid-template-columns:minmax(0,1fr) 150px}
+  .flow-foot,.fc-stats,.edk,.stk{grid-template-columns:1fr 1fr}
+  .rail{grid-template-columns:1fr}
+  .tower-top{min-height:420px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="tip" role="tooltip"></div>
+<div class="shell">
+  <nav>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 13h4l2-5 4 10 3-7 2 2h5"/></svg>
+      <span>VITALIS <small>&middot; Massachusetts General Hospital (public data)</small></span>
+    </div>
+    <div class="unit-tabs" id="unitTabs" role="group" aria-label="Choose unit"></div>
+    <span class="src-pill">HHS &middot; CMS Care Compare</span>
+  </nav>
+
+  <section class="rail" aria-label="Scenarios">
+    <span class="lbl">Scenario</span>
+    <div class="scen" id="scen"></div>
+    <div class="weekbox">
+      <button class="play" id="play" aria-pressed="false" aria-label="Play weeks">&#9654;</button>
+      <input type="range" id="week" min="0" max="1" value="0" aria-label="Reporting week">
+      <output id="weekOut" for="week"></output>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card dotted flow" aria-label="Inpatient census flow">
+      <div class="flow-head">
+        <h1 class="big">Patient<br>Flow</h1>
+        <div class="week-tag"><span class="lbl">Week of</span><b id="weekLabel"></b></div>
+      </div>
+      <div class="flow-body">
+        <div class="sankey-wrap">
+          <svg id="sankey" viewBox="0 0 560 300" role="img" aria-label="Inpatient census split across units. Hover a band for details, click to select."></svg>
+          <div class="src-label"><b>CENSUS</b><span class="num" id="censusLbl"></span></div>
+        </div>
+        <div class="dests" id="dests"></div>
+      </div>
+      <div class="flow-foot" id="kpis"></div>
+    </section>
+
+    <section class="card tower" aria-label="3D hospital floor">
+      <div class="tower-top" id="towerTop">
+        <canvas id="three" aria-label="3D hospital floor. Hover units and beds, click to select."></canvas>
+        <div class="tower-head">
+          <div><h2 id="unitName"></h2><span class="lbl" id="scaleNote"></span></div>
+          <div class="vcol"><div class="vbtns"><button class="vbtn" id="vHosp" type="button">Building</button><button class="vbtn" id="vUnit" type="button">Unit</button><button class="vbtn" id="vSpin" type="button" aria-pressed="true">Spin</button></div><div class="vbtns shiftseg" id="towerShift" role="group" aria-label="Shift"></div></div>
+        </div>
+        <div id="zlabels"></div>
+        <div class="floors" id="floorBtns" role="group" aria-label="Floors"></div>
+        <div class="bedcard" id="bedcard" hidden></div>
+        <div class="tower-legend"><span><i style="background:#ff5b1f"></i>Occupied</span><span><i style="background:#f2b33d"></i>Discharging today</span><span><i style="background:#3ecf8e"></i>Ready</span><span><i style="background:#6aa8ff"></i>Held for ED admit / ED patient</span><span><i style="background:#b07cff"></i>ED boarder</span><span><i style="background:#55302f"></i>Closed</span><span><i style="background:#ff2d2d"></i>Hallway</span><span><i style="background:#2dd4bf;border-radius:50%;width:7px;height:7px"></i>RN on duty</span></div>
+      </div>
+      <div class="tower-bot">
+        <h3 class="h-card">Projected Occupancy</h3>
+        <svg class="gauge" id="gauge" viewBox="0 0 240 150" role="img" aria-label="Projected occupancy gauge"></svg>
+        <div class="gauge-row"><span>Census <b class="num" id="gCensus"></b></span><span>Staffed <b class="num" id="gBeds"></b></span></div>
+        <span class="status" id="gStatus"></span>
+      </div>
+    </section>
+
+    <div class="lower">
+      <section class="card" aria-label="Quality measures">
+        <h3 class="h-card" style="text-align:center">Quality &middot; CMS</h3>
+        <div class="kv" id="quality"></div>
+      </section>
+
+      <section class="card ed" aria-label="Emergency department">
+        <div class="ed-tag">LWBS 4%<br>OP-18b &middot; 2025</div>
+        <div class="ring-wrap" id="edRingWrap">
+          <svg viewBox="0 0 140 140" aria-hidden="true">
+            <circle cx="70" cy="70" r="56" fill="none" stroke="#5b5855" stroke-width="10"/>
+            <circle id="edRing" cx="70" cy="70" r="56" fill="none" stroke="#151515" stroke-width="10" stroke-linecap="round" transform="rotate(-90 70 70)" stroke-dasharray="351.9" stroke-dashoffset="100"/>
+            <circle cx="70" cy="70" r="41" fill="none" stroke="#4a4846" stroke-dasharray="2 5"/>
+          </svg>
+          <div class="ring-c"><b class="num">298</b><span>min median<br>ED stay</span></div>
+        </div>
+        <div class="ed-foot">
+          <div><span class="lbl">ED visits this week</span><h3 id="edVisits">&mdash;</h3></div>
+          <div class="ed-pill" id="board">Boarding 0</div>
+        </div>
+      </section>
+
+      <section class="card chip-card" aria-label="CMS overall rating">
+        <div class="board">
+          <svg class="traces" viewBox="0 0 300 180" preserveAspectRatio="none" aria-hidden="true">
+            <g stroke="#3a3b42" stroke-width="1.4" fill="none"><path d="M0 40 H60 L75 55 H80"/><path d="M0 70 H80"/><path d="M0 110 H80"/><path d="M0 140 H55 L70 125 H80"/><path d="M220 50 H300"/><path d="M220 80 H300"/><path d="M220 130 H250 L265 145 H300"/><path d="M110 0 V20"/><path d="M150 0 V20"/><path d="M190 0 V20"/><path d="M130 160 V180"/><path d="M170 160 V180"/></g>
+            <g stroke="#ff5b1f" stroke-width="1.6" fill="none" style="filter:drop-shadow(0 0 3px #ff5b1f)"><path d="M220 95 H300"/><path d="M220 110 H240 L255 125 H300"/></g>
+          </svg>
+          <div class="chip"><span class="readout">&#9733;&#9733;&#9733;&#9733;&#9733;</span><div class="cap">CMS 5 / 5<small>OVERALL HOSPITAL RATING</small></div></div>
+        </div>
+        <div class="chip-foot"><span>Mortality <b>6/8 better</b></span><span>Readmit <b>4/11 worse</b></span></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ED → ADMISSION PIPELINE -->
+  <section class="card edp" aria-label="ED to admission pipeline">
+    <div class="lab-head">
+      <div><h3 class="h-card">ED &rarr; Admission Pipeline</h3><p class="sub" id="edNote"></p></div>
+      <div class="seg" id="dayChips" role="group" aria-label="Day of week"></div>
+    </div>
+    <div class="edk" id="edKpis"></div>
+    <div class="edgrid">
+      <div>
+        <div class="edlegend"><span><i style="background:#3ecf8e"></i>Rooms available for admission</span><span><i style="background:#ff5b1f"></i>Admission demand</span><span><i style="background:#6aa8ff;height:3px"></i>ED occupancy %</span></div>
+        <svg id="edDays" viewBox="0 0 560 230" role="img" aria-label="Daily rooms available versus admission demand, with ED occupancy"></svg>
+      </div>
+      <div>
+        <div class="edtable" id="edTable"></div>
+        <div class="lever"><label for="asRate">ED admit rate</label><output id="oRate"></output><input type="range" id="asRate" min="10" max="40" step="1" value="24"><small>Share of ED visits admitted. Assumption; academic centers typically run 20&ndash;30%.</small></div>
+        <div class="lever"><label for="asSpaces">ED treatment spaces</label><output id="oSpaces"></output><input type="range" id="asSpaces" min="40" max="140" step="2" value="80"><small>Assumption; not in the public data. Set it to your actual bay count.</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NURSE STAFFING -->
+  <section class="card" aria-label="Nurse staffing">
+    <div class="lab-head">
+      <div><h3 class="h-card">Nurse Staffing &middot; Unit &times; Shift</h3><p class="sub" id="stNote"></p></div>
+      <div class="seg" id="stShift" role="group" aria-label="Shift"></div>
+    </div>
+    <div class="stk" id="stKpis"></div>
+    <div class="sttable" id="stTable"></div>
+    <p class="sub" style="margin-top:10px">RNs on duty = RNs scheduled to cover every staffed bed at the target ratio &times; typical shift fill (Day 100%, Evening 94%, Night 86%), minus nurses lost on the &ldquo;Staffed beds lost&rdquo; lever. Census is the real HHS unit census adjusted by shift. Surgery volumes come from weekday elective admissions and ED surgical admits, with 1.3 outpatient cases per inpatient case, 56 ORs, 44 PACU bays and 2.4-hour average cases (assumptions).</p>
+  </section>
+
+  <!-- ANALYTICS LAB -->
+  <section class="lab">
+    <div class="card">
+      <div class="lab-head">
+        <div><h3 class="h-card" id="labTitle">Occupancy &amp; Forecast</h3><p class="sub">Hover for weekly detail, click to jump. Holt trend forecast fit only on weeks up to the selected week, so you can compare it with what actually happened.</p></div>
+        <div class="seg" id="metricSeg"><button type="button" data-m="pct" aria-pressed="true">Occupancy %</button><button type="button" data-m="occ" aria-pressed="false">Census</button><button type="button" data-m="beds" aria-pressed="false">Staffed beds</button></div>
+      </div>
+      <svg id="bigTrend" viewBox="0 0 900 280" preserveAspectRatio="none" role="img" aria-label="Weekly trend with forecast"></svg>
+      <div class="fc-stats" id="fcStats"></div>
+    </div>
+    <div class="card">
+      <h3 class="h-card">Insights</h3>
+      <p class="sub">Computed from all reported weeks for the selected unit. Click one to jump to the week it describes.</p>
+      <div class="insights" id="insights"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="lab-head"><div><h3 class="h-card">Pressure Map &middot; Unit &times; Month</h3><p class="sub">Average monthly occupancy. Hover a cell for detail, click to load that unit and month.</p></div></div>
+    <div class="heat-wrap"><svg id="heat" viewBox="0 0 1000 170" role="img" aria-label="Monthly occupancy heatmap"></svg></div>
+    <div class="heat-legend"><span>60%</span><span class="bar"></span><span>105%+</span></div>
+  </section>
+
+  <section class="analyst">
+    <div class="card">
+      <h3 class="h-card">What-if Levers</h3>
+      <p class="sub">Applied on top of the real week to <b id="leverUnit" style="color:var(--ink)"></b>. Watch the 3D floor and gauge respond.</p>
+      <div class="lever"><label for="lvDemand">Admission demand</label><output id="oDemand"></output><input type="range" id="lvDemand" min="-30" max="50" step="1" value="0"><small>Flu, RSV or COVID wave, mass-casualty event</small></div>
+      <div class="lever"><label for="lvStaff">Staffed beds lost</label><output id="oStaff"></output><input type="range" id="lvStaff" min="0" max="30" step="1" value="0"><small>Nurse call-outs or vacancies close beds</small></div>
+      <div class="lever"><label for="lvLos">Length-of-stay change</label><output id="oLos"></output><input type="range" id="lvLos" min="-25" max="25" step="1" value="0"><small>Faster discharge (&minus;) or post-acute delays (+)</small></div>
+      <div class="lever"><label for="lvFlex">Flex beds opened</label><output id="oFlex"></output><input type="range" id="lvFlex" min="0" max="80" step="1" value="0"><small>PACU, hallway or converted space</small></div>
+      <div class="proj">
+        <div><span class="lbl">Projected</span><b class="num" id="pOcc"></b></div>
+        <div><span class="lbl">Beds short</span><b class="num" id="pShort"></b></div>
+        <div><span class="lbl">Free beds</span><b class="num" id="pFree"></b></div>
+      </div>
+      <button class="reset" id="resetBtn" type="button">Reset levers</button>
+    </div>
+
+    <div class="card chat" aria-label="AI analyst">
+      <div class="chat-head">
+        <h3 class="h-card">AI Analyst</h3>
+        <span class="live" id="live"><i></i><span id="liveTxt">Connecting&hellip;</span></span>
+      </div>
+      <div class="log" id="log" aria-live="polite">
+        <div class="msg ai">Ask me about any unit, week or scenario. I see the same real data you do, and I can run a what-if on the dashboard for you.</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <form class="composer" id="composer">
+        <textarea id="q" placeholder="e.g. What happens to the ICU if we lose 15% of nurses during the Omicron peak?" aria-label="Question for the AI analyst"></textarea>
+        <button class="send" id="send" type="submit">Ask</button>
+      </form>
+    </div>
+  </section>
+
+  <footer>
+    Sources: HHS &ldquo;COVID-19 Reported Patient Impact and Hospital Capacity by Facility&rdquo; (healthdata.gov dataset anag-cw7u), CCN 220071, weekly 7-day averages, Sep 2020 &ndash; Apr 2024 (federal reporting ended May 2024).
+    Quality and rating: CMS Care Compare provider data, latest periods 2023&ndash;2025.
+    Units are derived: Adult Med/Surg = adult inpatient minus staffed adult ICU; Pediatric = all inpatient minus adult; Peds &amp; Neonatal ICU = total ICU minus adult ICU.
+    Room-level detail in the 3D view (room number, status mix, day of stay, clinical group) is illustrative, generated from the real unit totals; the source reports totals only. Levers and forecasts are projections. Building: departments are stacked on six illustrative levels (the real campus spans several buildings); Med/Surg is split across two floors. Nurse staffing: ratio targets from the Massachusetts ICU staffing law (2014) and California Title 22; RN schedules, shift fill rates, OR and PACU counts and surgical volumes are assumptions. ED pipeline: real weekly ED visits, census and staffed beds, and the CMS median ED stay; ED admit rate, ED treatment spaces, unit mix of ED admits, average length of stay and day-of-week profiles are stated assumptions. Independent analysis, not affiliated with the hospital.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const RAW=/*DATA*/[];
+(function(){
+"use strict";
+// ================= DATA =================
+const W=RAW.filter(w=>w.ab&&w.icb&&w.tib&&w.tiu&&w.ib&&w.iu&&(w.tib-w.icb)>5&&((w.ib-w.ab)-(w.tib-w.icb))>20);
+const UNITS=[
+  {k:"medsurg",n:"Adult Med/Surg",short:"Med/Surg",alos:5.2,f:w=>({beds:w.ab-w.icb,occ:w.ao-w.ico})},
+  {k:"icu",n:"Adult ICU",short:"Adult ICU",alos:4.1,f:w=>({beds:w.icb,occ:w.ico})},
+  {k:"peds",n:"Pediatric Ward",short:"Peds Ward",alos:3.4,f:w=>({beds:(w.ib-w.ab)-(w.tib-w.icb),occ:(w.iu-w.ao)-(w.tiu-w.ico)})},
+  {k:"picu",n:"Peds & Neonatal ICU",short:"PICU/NICU",alos:6.5,f:w=>({beds:w.tib-w.icb,occ:w.tiu-w.ico})}
+];
+const unitDef=k=>UNITS.find(u=>u.k===k);
+const SERIES={};UNITS.forEach(u=>{SERIES[u.k]=W.map(w=>{const b=u.f(w);return{beds:b.beds,occ:b.occ,pct:b.occ/b.beds*100};});});
+const idxOf=d=>{let i=W.findIndex(w=>w.w===d);return i<0?W.length-1:i;};
+const SCEN=[
+  {id:"latest",b:"Latest reported",d:"2024-04-21",u:"medsurg",tag:"Real week"},
+  {id:"omicron",b:"Omicron peak",d:"2022-01-16",u:"medsurg",tag:"Real week"},
+  {id:"delta",b:"Adult ICU at 100%",d:"2021-09-26",u:"icu",tag:"Real week"},
+  {id:"rsv",b:"Pediatric RSV/flu surge",d:"2022-11-06",u:"peds",tag:"Real week"},
+  {id:"lull",b:"Fall 2020 baseline",d:"2020-09-13",u:"medsurg",tag:"Real week"},
+  {id:"omi-staff",b:"Omicron + 15% call-outs",d:"2022-01-16",u:"icu",tag:"What-if",lv:{staff:15}},
+  {id:"tripledemic",b:"Tripledemic replay +20%",d:"2022-11-06",u:"picu",tag:"What-if",lv:{demand:20}},
+  {id:"discharge",b:"Discharge sprint −10% LOS",d:"2021-10-17",u:"medsurg",tag:"What-if",lv:{los:-10}}
+];
+const S={wi:W.length-1,unit:"medsurg",scen:"latest",lv:{demand:0,staff:0,los:0,flex:0},metric:"pct",day:0,admitRate:24,edSpaces:80,focusEd:false,focusZone:null,shift:0,floor:0,model:null};
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>Number(n).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});
+const fmtDate=s=>new Date(s+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pctColor=p=>p>=95?"var(--crit)":p>=85?"var(--warn)":"var(--ok)";
+
+// ================= TOOLTIP =================
+const tip=$("tip");
+function showTip(e,html){tip.innerHTML=html;tip.classList.add("on");const r=tip.getBoundingClientRect();let x=e.clientX+14,y=e.clientY+14;if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;tip.style.left=x+"px";tip.style.top=y+"px";}
+function hideTip(){tip.classList.remove("on");}
+addEventListener("scroll",hideTip,{passive:true});
+const row=(a,b)=>`<div class="r"><span>${a}</span><span>${b}</span></div>`;
+
+// ================= MODEL =================
+function project(k,wi,useLv=true){
+  const b=SERIES[k][wi],L=useLv?S.lv:{demand:0,staff:0,los:0,flex:0};
+  const census=Math.max(0,b.occ*(1+L.demand/100)*(1+L.los/100));
+  const cap=Math.max(1,b.beds*(1-L.staff/100)+L.flex);
+  return {beds:b.beds,occ:b.occ,census,cap,closed:b.beds*L.staff/100,pct:census/cap*100,short:Math.max(0,census-cap),free:Math.max(0,cap-census)};
+}
+// Holt's linear trend, returns fitted level/trend and residual sd
+function holt(y,a=0.5,b=0.15){let l=y[0],t=y.length>1?y[1]-y[0]:0;const res=[];
+  for(let i=1;i<y.length;i++){const f=l+t;res.push(y[i]-f);const nl=a*y[i]+(1-a)*(l+t);t=b*(nl-l)+(1-b)*t;l=nl;}
+  const sd=Math.sqrt(res.slice(-52).reduce((s,r)=>s+r*r,0)/Math.max(1,Math.min(52,res.length)));return{l,t,sd};}
+function forecast(k,wi,h=8,metric="pct"){
+  const y=SERIES[k].slice(0,wi+1).map(r=>r[metric]);if(y.length<8)return null;
+  const {l,t,sd}=holt(y.slice(-104));const damp=0.9;let acc=0,out=[];
+  for(let i=1;i<=h;i++){acc+=Math.pow(damp,i);const m=l+t*acc;out.push({i:wi+i,m,lo:m-1.28*sd*Math.sqrt(i),hi:m+1.28*sd*Math.sqrt(i)});}
+  return {pts:out,sd};}
+function pearson(a,b){const n=a.length;if(n<5)return 0;const ma=a.reduce((s,x)=>s+x,0)/n,mb=b.reduce((s,x)=>s+x,0)/n;let sab=0,sa=0,sb=0;for(let i=0;i<n;i++){sab+=(a[i]-ma)*(b[i]-mb);sa+=(a[i]-ma)**2;sb+=(b[i]-mb)**2;}return sab/Math.sqrt(sa*sb);}
+// ---- ED → admission daily model ----
+// Real inputs: weekly ED visits (HHS), unit census and staffed beds (HHS), median ED stay 298 min (CMS OP-18b).
+// Assumptions (shown on the page): ED admit rate, ED treatment spaces, unit mix of ED admits, average LOS,
+// and typical published day-of-week profiles for ED arrivals, discharges and elective admissions.
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const ARR=[1.12,1.04,1.0,0.99,0.98,0.92,0.95],DIS=[1.05,1.1,1.1,1.1,1.15,0.78,0.72],ELE=[1.3,1.3,1.3,1.3,1.25,0.3,0.25];
+const MIX={medsurg:0.72,icu:0.12,peds:0.12,picu:0.04},ED_LOS_MIN=298;
+function edWeekly(wi){if(W[wi].ed!=null)return{v:W[wi].ed,wi,exact:true};for(let d=1;d<W.length;d++){for(const j of[wi-d,wi+d])if(j>=0&&j<W.length&&W[j].ed!=null)return{v:W[j].ed,wi:j,exact:false};}return{v:2100,wi,exact:false};}
+function dayModel(wi){
+  const ed=edWeekly(wi),rate=S.admitRate/100;
+  const days=DAYS.map((name,d)=>{
+    const arrivals=ed.v/7*ARR[d],edAdmits=arrivals*rate*(1+(MIX[S.unit]||0)*S.lv.demand/100);
+    const units={};let board=0,avail=0,demand=0,disch=0;
+    UNITS.forEach(u=>{const sel=u.k===S.unit,p=project(u.k,wi,sel),alos=u.alos*(1+(sel?S.lv.los:0)/100);
+      const inRooms=Math.min(p.census,p.cap),dis=inRooms/alos*DIS[d],open=Math.max(0,p.cap-p.census);
+      const edA=arrivals*rate*MIX[u.k]*(sel?1+S.lv.demand/100:1),baseEd=ed.v/7*rate*MIX[u.k];
+      const other=Math.max(0,inRooms/alos-baseEd)*ELE[d]*(sel?1+S.lv.demand/100:1);
+      const av=open+dis,dm=edA+other+p.short,net=av-dm;
+      units[u.k]={open,dis,avail:av,edA,other,hall:p.short,demand:dm,net,board:Math.max(0,-net)};
+      board+=Math.max(0,-net);avail+=av;demand+=dm;disch+=dis;});
+    const inED=arrivals*ED_LOS_MIN/1440,edCensus=inED+board;
+    return{name,arrivals,edAdmits,inED,board,edCensus,edOcc:edCensus/S.edSpaces*100,avail,demand,disch,net:avail-demand,units};});
+  return{ed,days};
+}
+// ---- Nurse staffing + perioperative model ----
+// Ratio targets: Massachusetts ICU law (M.G.L. c.111 §231, 2014: 1:1 or 1:2 in ICUs) and California Title 22
+// minimums used as the national benchmark (Med/Surg 1:5, Peds 1:4, ED 1:4, PACU 1:2, OR 1 circulating RN per room).
+// Census is real (HHS); RN schedules, shift fill rates and surgical volumes are stated assumptions.
+const SHIFTS=[
+  {n:"Day",h:"07:00–15:00",cen:1.0,fill:1.0,ed:0.42,or:0.75,orStaff:1.0,pacuStaff:1.0},
+  {n:"Evening",h:"15:00–23:00",cen:1.03,fill:0.94,ed:0.38,or:0.20,orStaff:0.35,pacuStaff:0.6},
+  {n:"Night",h:"23:00–07:00",cen:0.97,fill:0.86,ed:0.20,or:0.05,orStaff:0.10,pacuStaff:0.25}];
+const TARGET={medsurg:5,icu:2,peds:4,picu:2,ed:4,or:1,pacu:2};
+const OR_ROOMS=56,PACU_BAYS=44,CASE_H=2.4,PACU_H=1.6,OUTPT=1.3,SURG_SHARE=0.55,ED_SURG=0.12;
+function surgery(dm,d,sh){
+  const sf=SHIFTS[sh],wkend=d>=5;
+  const ip=UNITS.reduce((s,u)=>s+dm.units[u.k].other,0)*SURG_SHARE+dm.edAdmits*ED_SURG;
+  const cases=ip*(1+OUTPT),shc=cases*sf.or;
+  const staffed=Math.max(2,Math.round(OR_ROOMS*sf.orStaff*(wkend&&sh===0?0.3:1)));
+  const inUse=Math.min(staffed,shc*CASE_H/8),turn=Math.min(staffed-inUse,inUse*0.18);
+  const pacuStaffed=Math.round(PACU_BAYS*sf.pacuStaff*(wkend&&sh===0?0.4:1)),pacu=Math.min(PACU_BAYS,shc*PACU_H/8);
+  return{ip,cases,shc,staffed,inUse,turn,avail:Math.max(0,staffed-inUse-turn),closed:OR_ROOMS-staffed,util:staffed?inUse/staffed*100:0,pacu,pacuStaffed};
+}
+function staffing(sh){
+  const dm=S.model.days[S.day],sf=SHIFTS[sh],rows=[];
+  UNITS.forEach(u=>{const sel=u.k===S.unit,p=project(u.k,S.wi,sel),census=p.census*sf.cen,plan=Math.ceil(SERIES[u.k][S.wi].beds/TARGET[u.k]);
+    const on=Math.max(1,Math.round(plan*sf.fill*(1-(sel?S.lv.staff:0)/100)));
+    rows.push({k:u.k,n:u.n,short:u.short,census,on,plan,target:TARGET[u.k],what:"patients"});});
+  const edCen=dm.arrivals*sf.ed*ED_LOS_MIN/480+dm.board,edPlan=Math.ceil(S.edSpaces/TARGET.ed);
+  rows.push({k:"ed",n:"Emergency Dept",short:"ED",census:edCen,on:Math.max(1,Math.round(edPlan*sf.fill)),plan:edPlan,target:TARGET.ed,what:"patients"});
+  const sg=surgery(dm,S.day,sh);
+  rows.push({k:"or",n:"Operating Rooms",short:"OR",census:sg.inUse,on:sg.staffed,plan:OR_ROOMS,target:TARGET.or,what:"rooms running"});
+  rows.push({k:"pacu",n:"PACU (recovery)",short:"PACU",census:sg.pacu,on:Math.max(1,Math.ceil(sg.pacuStaffed/2)),plan:Math.ceil(PACU_BAYS/2),target:TARGET.pacu,what:"patients"});
+  rows.forEach(r=>{r.need=Math.ceil(r.census/r.target-1e-9);r.gap=r.on-r.need;r.ratio=r.census/Math.max(1,r.on);r.ok=r.ratio<=r.target+0.05;});
+  return{rows,sg};
+}
+function ratioColor(r){return r.ratio<=r.target+0.05?"var(--ok)":r.ratio<=r.target*1.2?"var(--warn)":"var(--crit)";}
+
+const normCdf=z=>{const t=1/(1+0.2316419*Math.abs(z)),d=0.3989423*Math.exp(-z*z/2);let p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p;};
+
+// ================= CONTROLS =================
+const tabs=$("unitTabs");
+UNITS.forEach(u=>{const b=document.createElement("button");b.className="utab";b.textContent=u.short;b.dataset.k=u.k;b.type="button";b.onclick=()=>selectUnit(u.k,true);tabs.appendChild(b);});
+function selectUnit(k,fly){S.focusZone=null;if(S.unit!==k){S.unit=k;S.scen=null;}render();if(fly)ward3d.focus(k);}
+const scen=$("scen");
+SCEN.forEach(s=>{const b=document.createElement("button");b.type="button";b.className="sbtn";b.dataset.id=s.id;
+  b.innerHTML=`<em>${s.tag}</em><b>${s.b}</b><span>${fmtDate(s.d)}</span>`;b.onclick=()=>applyScenario(s.id);scen.appendChild(b);});
+function applyScenario(id){const s=SCEN.find(x=>x.id===id);if(!s)return;S.scen=id;S.wi=idxOf(s.d);S.unit=s.u;S.lv={demand:0,staff:0,los:0,flex:0,...(s.lv||{})};syncLevers();render();ward3d.focus(s.u);}
+const week=$("week");week.max=W.length-1;
+week.oninput=()=>{setWeek(+week.value);};
+function setWeek(i){S.wi=Math.max(0,Math.min(W.length-1,i));S.scen=null;render();}
+let playT=null;$("play").onclick=()=>{const b=$("play");if(playT){clearInterval(playT);playT=null;b.setAttribute("aria-pressed","false");b.innerHTML="&#9654;";return;}
+  if(S.wi>=W.length-1)S.wi=0;b.setAttribute("aria-pressed","true");b.innerHTML="&#10074;&#10074;";playT=setInterval(()=>{if(S.wi>=W.length-1){$("play").click();return;}setWeek(S.wi+1);},260);};
+const LV=[["lvDemand","demand","oDemand",v=>(v>0?"+":"")+v+"%"],["lvStaff","staff","oStaff",v=>v+"%"],["lvLos","los","oLos",v=>(v>0?"+":"")+v+"%"],["lvFlex","flex","oFlex",v=>"+"+v]];
+LV.forEach(([id,key])=>{$(id).oninput=e=>{S.lv[key]=+e.target.value;S.scen=null;render();};});
+function syncLevers(){LV.forEach(([id,key])=>{$(id).value=S.lv[key];});}
+$("resetBtn").onclick=()=>{S.lv={demand:0,staff:0,los:0,flex:0};syncLevers();render();};
+$("asRate").oninput=e=>{S.admitRate=+e.target.value;render();};
+$("asSpaces").oninput=e=>{S.edSpaces=+e.target.value;render();};
+DAYS.forEach((d,i)=>{const b=document.createElement("button");b.type="button";b.textContent=d;b.onclick=()=>{S.day=i;render();};$("dayChips").appendChild(b);});
+[["stShift",0],["towerShift",1]].forEach(([id,short])=>SHIFTS.forEach((sh,i)=>{const b=document.createElement("button");b.type="button";b.className=short?"vbtn":"";b.textContent=short?sh.n.slice(0,3):`${sh.n} ${sh.h}`;b.onclick=()=>{S.shift=i;render();};$(id).appendChild(b);}));
+$("metricSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{S.metric=b.dataset.m;$("metricSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));drawBigTrend();});
+
+// ================= SANKEY =================
+const sparkPath=(k,wi,w=60,h=18)=>{const s=SERIES[k].slice(Math.max(0,wi-25),wi+1).map(r=>r.pct);const lo=Math.min(...s),hi=Math.max(...s,lo+1);return s.map((v,i)=>(i?"L":"M")+(i/(s.length-1)*w).toFixed(1)+" "+(h-(v-lo)/(hi-lo)*h).toFixed(1)).join("");};
+function drawSankey(){
+  const svg=$("sankey"),w=W[S.wi],H=300,srcX=150,hubW=46,dstX=560,srcH=140,top=(H-srcH)/2;
+  const vals=UNITS.map(u=>Math.max(0,SERIES[u.k][S.wi].occ)),tot=vals.reduce((a,b)=>a+b,0);
+  let html=`<defs><linearGradient id="gOn" x1="0" x2="1"><stop offset="0" stop-color="#ff5b1f"/><stop offset=".6" stop-color="#ff6a2e"/><stop offset="1" stop-color="#7a3a22"/></linearGradient>
+  <linearGradient id="gOff" x1="0" x2="1"><stop offset="0" stop-color="#56575d"/><stop offset="1" stop-color="#2e2f34"/></linearGradient>
+  <linearGradient id="gSrc" x1="0" x2="1"><stop offset="0" stop-color="#3a3b40" stop-opacity="0"/><stop offset="1" stop-color="#56575d"/></linearGradient></defs>
+  <rect x="0" y="${top}" width="${srcX}" height="${srcH}" fill="url(#gSrc)"/><path d="M12 ${H/2+28} H118" stroke="#ff5b1f" stroke-width="1.5"/>`;
+  const MIN=6;let hs=vals.map(v=>Math.max(MIN,v/tot*srcH));const sc=srcH/hs.reduce((a,b)=>a+b,0);hs=hs.map(h=>h*sc);
+  let y=top;
+  UNITS.forEach((u,i)=>{const h=hs[i],x0=srcX+hubW,y1=36+i*76-h/2,cx=(x0+dstX)/2-10,on=u.k===S.unit;
+    html+=`<path d="M${x0} ${y} C${cx} ${y} ${cx} ${y1} ${dstX} ${y1} L${dstX} ${y1+h} C${cx} ${y1+h} ${cx} ${y+h} ${x0} ${y+h} Z" fill="url(#${on?"gOn":"gOff"})" style="cursor:pointer" data-k="${u.k}"/>`;y+=h;});
+  const cx0=srcX+hubW/2,cy0=H/2;
+  html+=`<rect x="${srcX}" y="${top-8}" width="${hubW}" height="${srcH+16}" rx="4" fill="#ff5b1f"/><circle cx="${cx0}" cy="${cy0}" r="14" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M${cx0-8} ${cy0} H${cx0+8} M${cx0} ${cy0-8} V${cy0+8}" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`;
+  svg.innerHTML=html;
+  svg.querySelectorAll("path[data-k]").forEach(p=>{const k=p.dataset.k;
+    p.onclick=()=>selectUnit(k,true);
+    p.onmousemove=e=>showTip(e,unitTip(k));p.onmouseleave=hideTip;});
+  $("censusLbl").textContent=fmt(tot)+" pts · 7-day avg";
+  const d=$("dests");d.innerHTML="";
+  UNITS.forEach(u=>{const b=SERIES[u.k][S.wi];const el=document.createElement("button");el.type="button";
+    el.className="dest"+(u.k===S.unit?" on":"");el.setAttribute("aria-pressed",u.k===S.unit);
+    el.innerHTML=`<div><div class="t">${u.n}</div><div class="v num">${fmt(b.occ)}/${fmt(b.beds)} · <span style="color:${pctColor(b.pct)}">${fmt(b.pct)}%</span></div></div><svg width="60" height="18" aria-hidden="true"><path d="${sparkPath(u.k,S.wi)}" fill="none" stroke="${u.k===S.unit?"#ff5b1f":"#6e6f76"}" stroke-width="1.5"/></svg>`;
+    el.onclick=()=>selectUnit(u.k,true);el.onmousemove=e=>showTip(e,unitTip(u.k));el.onmouseleave=hideTip;d.appendChild(el);});
+}
+function unitTip(k){const u=unitDef(k),b=SERIES[k][S.wi],p4=SERIES[k].slice(Math.max(0,S.wi-4),S.wi).map(r=>r.pct),a4=p4.length?p4.reduce((s,x)=>s+x,0)/p4.length:b.pct;
+  const yr=S.wi>=52?SERIES[k][S.wi-52].pct:null;
+  return `<b>${u.n}</b>${row("Occupied",fmt(b.occ,1))}${row("Staffed beds",fmt(b.beds,1))}${row("Occupancy",fmt(b.pct,1)+"%")}${row("vs 4-wk avg",(b.pct-a4>=0?"+":"")+fmt(b.pct-a4,1)+" pp")}${yr!=null?row("vs 52 wks ago",(b.pct-yr>=0?"+":"")+fmt(b.pct-yr,1)+" pp"):""}<em>Click to select and fly to this unit</em>`;}
+
+// ================= KPIs =================
+function drawKpis(){
+  const w=W[S.wi],prev=W[Math.max(0,S.wi-1)],ly=S.wi>=52?W[S.wi-52]:null;
+  const K=[
+    {l:"Hospital occupancy",v:w.iu/w.ib*100,pv:prev.iu/prev.ib*100,ly:ly?ly.iu/ly.ib*100:null,u:"%",d:1,tip:"All inpatient beds used ÷ inpatient beds, 7-day average"},
+    {l:"Inpatient census",v:w.iu,pv:prev.iu,ly:ly?.iu,u:"PTS",d:0,tip:"Average inpatient beds in use"},
+    {l:"COVID inpatients",v:w.cov,pv:prev.cov,ly:ly?.cov,u:"PTS",d:0,tip:"Inpatient beds used by confirmed or suspected COVID patients"},
+    {l:"ED visits / wk",v:w.ed,pv:prev.ed,ly:ly?.ed,u:"",d:0,tip:"Total emergency department visits in the 7-day window"}
+  ];
+  const k=$("kpis");k.innerHTML="";
+  K.forEach(x=>{const el=document.createElement("div");el.className="kpi";
+    const has=x.v!=null,dd=has&&x.pv!=null?x.v-x.pv:null;
+    el.innerHTML=`<span class="lbl">${x.l}</span><div class="stat num">${has?fmt(x.v,x.d):"n/a"}<small>${has?x.u:""}</small></div><div class="delta ${dd==null?"flat":dd>0?"up":dd<0?"dn":"flat"}">${dd==null?"not reported":(dd>0?"▲ ":"▼ ")+fmt(Math.abs(dd),x.d)+" WoW"}</div>`;
+    el.onmousemove=e=>showTip(e,`<b>${x.l}</b>${row("This week",has?fmt(x.v,x.d):"n/a")}${row("Last week",x.pv!=null?fmt(x.pv,x.d):"n/a")}${row("52 weeks ago",x.ly!=null?fmt(x.ly,x.d):"n/a")}<em>${x.tip}</em>`);el.onmouseleave=hideTip;k.appendChild(el);});
+}
+
+// ================= QUALITY =================
+const QM=[
+  {l:"Readmit (HWR)",v:"15.0%",t:"'24–25",c:"mid",d:"Hybrid hospital-wide all-cause readmission, Jul 2024–Jun 2025. 4 of 11 readmission measures are worse than national."},
+  {l:"Mortality (HWM)",v:"1.8%",t:"'24–25",c:"good",d:"Hybrid hospital-wide risk-standardized mortality. 6 of 8 mortality measures are better than national."},
+  {l:"Sepsis SEP-1",v:"55%",t:"low",c:"bad",d:"Appropriate care for severe sepsis and septic shock, 2025. Septic shock 3-hour bundle 66%, 6-hour bundle 96%."},
+  {l:"PSI-90 safety",v:"0.98",t:"= natl",c:"mid",d:"Patient safety and adverse events composite, Jul 2023–Jun 2025. No different than national."},
+  {l:"PE/DVT PSI-12",v:"4.94",t:"worse",c:"bad",d:"Perioperative pulmonary embolism or DVT per 1,000. Worse than the national rate."},
+  {l:"Would recommend",v:"94",t:"5★",c:"good",d:"HCAHPS linear score for patients who would recommend the hospital, 2025. Communication about medicines scored 74 (2 stars)."}
+];
+(function(){const q=$("quality");QM.forEach(m=>{const b=document.createElement("button");b.type="button";b.innerHTML=`<span><span class="lbl">${m.l}</span><b class="num">${m.v}</b></span><span class="tag ${m.c}">${m.t}</span>`;
+  b.onmousemove=e=>showTip(e,`<b>${m.l} · ${m.v}</b><em style="color:var(--ink-2)">${m.d}</em><em>Click to ask the AI analyst</em>`);b.onmouseleave=hideTip;
+  b.onclick=()=>{q2.value=`Explain our ${m.l} result (${m.v}) and what operational changes would improve it.`;ask();document.querySelector(".chat").scrollIntoView({behavior:"smooth",block:"center"});};q.appendChild(b);});})();
+$("edRingWrap").onmousemove=e=>showTip(e,`<b>ED median stay · 298 min</b><em style="color:var(--ink-2)">CMS OP-18b, 2025: median time from arrival to departure for discharged ED patients. Psychiatric patients 146 min. Left without being seen 4% (2024).</em>`);
+$("edRingWrap").onmouseleave=hideTip;
+
+// ================= GAUGE =================
+function drawGauge(p){
+  const g=$("gauge"),cx=120,cy=125,r=92,frac=Math.min(1,p.pct/120);
+  const pt=(a,rr)=>[cx+rr*Math.cos(a),cy-rr*Math.sin(a)];
+  const arc=(a0,a1,rr)=>{const[x0,y0]=pt(a0,rr),[x1,y1]=pt(a1,rr);return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${rr} ${rr} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;};
+  const A=v=>Math.PI-Math.PI*Math.min(1,v/120);
+  let t="";for(let i=0;i<=24;i++){const a=Math.PI-Math.PI*i/24;const[x0,y0]=pt(a,70),[x1,y1]=pt(a,i%4?74:78);t+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#4a4b52"/>`;}
+  const col=p.pct>=100?"#ff4d4d":p.pct>=90?"#f2b33d":"#ff5b1f";
+  g.innerHTML=`${t}<path d="${arc(Math.PI,0,r)}" stroke="#34353b" stroke-width="22" fill="none"/>
+   <path d="${arc(A(80),A(90),r+16)}" stroke="#3ecf8e" stroke-width="3" fill="none"/>
+   <path d="${arc(A(100),A(100.6),r)}" stroke="#ff4d4d" stroke-width="26" fill="none"/>
+   <path d="${arc(Math.PI,Math.PI-Math.PI*frac,r)}" stroke="${col}" stroke-width="22" fill="none" style="filter:drop-shadow(0 0 6px ${col}88)"/>
+   <text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#f2f1ee" font-family="Unbounded,Arial Black,sans-serif" font-size="32">${fmt(p.pct)}%</text>
+   <text x="${cx-r}" y="${cy+18}" text-anchor="middle" fill="#a6a6ad" font-size="10">0%</text>
+   <text x="${cx+r}" y="${cy+18}" text-anchor="middle" fill="#a6a6ad" font-size="10">120%</text>
+   <text x="${cx}" y="${cy-r-18}" text-anchor="middle" fill="#a6a6ad" font-size="9">60%</text>`;
+  $("gCensus").textContent=fmt(p.census);$("gBeds").textContent=fmt(p.cap);
+  const st=$("gStatus");
+  if(p.pct>=100){st.className="status st-crit";st.textContent=`Over capacity · ${fmt(p.short)} beds short`;}
+  else if(p.pct>=90){st.className="status st-warn";st.textContent="Above 90% · surge watch";}
+  else{st.className="status st-ok";st.textContent="Within safe range";}
+}
+
+// ================= BIG TREND + FORECAST =================
+function drawBigTrend(){
+  const svg=$("bigTrend"),k=S.unit,u=unitDef(k),m=S.metric,Wd=900,H=280,pl=44,pr=10,pt=14,pb=26;
+  const ys=SERIES[k].map(r=>r[m]),fc=forecast(k,S.wi,8,m);
+  const all=ys.concat(fc?fc.pts.flatMap(p=>[p.lo,p.hi]):[]);
+  let lo=Math.min(...all),hi=Math.max(...all);if(m==="pct"){lo=Math.min(lo,60);hi=Math.max(hi,105);}const pad=(hi-lo)*0.06;lo-=pad;hi+=pad;
+  const N=W.length-1+8,X=i=>pl+i/N*(Wd-pl-pr),Y=v=>pt+(1-(v-lo)/(hi-lo))*(H-pt-pb);
+  let g="";
+  // grid + y ticks
+  const step=(hi-lo)/5;for(let i=0;i<=5;i++){const v=lo+step*i;g+=`<line x1="${pl}" x2="${Wd-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#2a2b30"/><text x="${pl-6}" y="${Y(v)+3}" text-anchor="end" fill="#6e6f76" font-size="10" font-family="JetBrains Mono,monospace">${fmt(v)}${m==="pct"?"%":""}</text>`;}
+  // year ticks
+  let lastY="";W.forEach((w,i)=>{const yv=w.w.slice(0,4);if(yv!==lastY&&w.w.slice(5,7)<="01"){g+=`<line x1="${X(i)}" x2="${X(i)}" y1="${pt}" y2="${H-pb}" stroke="#2a2b30" stroke-dasharray="2 4"/><text x="${X(i)+3}" y="${H-8}" fill="#6e6f76" font-size="10" font-family="JetBrains Mono,monospace">${yv}</text>`;}lastY=yv;});
+  if(m==="pct"){g+=`<rect x="${pl}" y="${Y(90)}" width="${Wd-pl-pr}" height="${Y(80)-Y(90)}" fill="rgba(62,207,142,.07)"/><line x1="${pl}" x2="${Wd-pr}" y1="${Y(100)}" y2="${Y(100)}" stroke="#ff4d4d" stroke-dasharray="4 4"/>`;}
+  // COVID overlay on secondary scale (pct view)
+  if(m==="pct"){const cv=W.map(w=>w.cov),cmax=Math.max(...cv.filter(v=>v!=null));let d="";W.forEach((w,i)=>{if(w.cov==null)return;const yy=H-pb-(w.cov/cmax)*(H-pt-pb)*0.35;d+=(d?"L":"M")+X(i).toFixed(1)+" "+yy.toFixed(1);});g+=`<path d="${d}" fill="none" stroke="#6aa8ff" stroke-width="1" opacity=".55"/>`;}
+  // series
+  let d="";ys.forEach((v,i)=>d+=(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1));
+  g+=`<path d="${d}L${X(ys.length-1)} ${H-pb}L${X(0)} ${H-pb}Z" fill="rgba(255,91,31,.10)"/><path d="${d}" fill="none" stroke="#ff5b1f" stroke-width="1.8"/>`;
+  // forecast
+  let stats={};
+  if(fc){const P=fc.pts,start=`${X(S.wi)} ${Y(ys[S.wi])}`;
+    g+=`<path d="M${X(S.wi)} ${Y(ys[S.wi])} ${P.map(p=>"L"+X(p.i)+" "+Y(p.hi)).join("")} ${P.slice().reverse().map(p=>"L"+X(p.i)+" "+Y(p.lo)).join("")} Z" fill="rgba(242,241,238,.10)"/>`;
+    g+=`<path d="M${start} ${P.map(p=>"L"+X(p.i)+" "+Y(p.m)).join("")}" fill="none" stroke="#f2f1ee" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+    const act=P.filter(p=>p.i<W.length);
+    if(act.length){const mape=act.reduce((s,p)=>s+Math.abs((ys[p.i]-p.m)/ys[p.i]),0)/act.length*100,cover=act.filter(p=>ys[p.i]>=p.lo&&ys[p.i]<=p.hi).length/act.length*100;stats.mape=mape;stats.cover=cover;stats.n=act.length;}
+    stats.end=P[P.length-1];
+    if(m==="pct"){const p8=P[P.length-1];stats.pOver=(1-normCdf((100-p8.m)/((p8.hi-p8.m)/1.28)))*100;}
+  }
+  // scenario markers
+  SCEN.filter(s=>s.tag==="Real week").forEach(s=>{const i=idxOf(s.d);g+=`<circle cx="${X(i)}" cy="${pt+4}" r="3" fill="#ff8a5c"><title>${s.b}</title></circle>`;});
+  g+=`<line id="cur" x1="${X(S.wi)}" x2="${X(S.wi)}" y1="${pt}" y2="${H-pb}" stroke="#f2f1ee"/><circle cx="${X(S.wi)}" cy="${Y(ys[S.wi])}" r="4.5" fill="#fff"/>`;
+  g+=`<line id="hov" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="#a6a6ad" stroke-dasharray="2 3" visibility="hidden"/><circle id="hovDot" r="4" fill="#ff5b1f" stroke="#fff" visibility="hidden"/>`;
+  svg.innerHTML=g;
+  $("labTitle").textContent=`${u.n} · ${m==="pct"?"Occupancy":m==="occ"?"Census":"Staffed beds"} & Forecast`;
+  // hover
+  const hov=svg.querySelector("#hov"),dot=svg.querySelector("#hovDot");
+  const idxAt=e=>{const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*Wd;return Math.round((x-pl)/(Wd-pl-pr)*N);};
+  svg.onmousemove=e=>{const i=idxAt(e);
+    if(i>=0&&i<W.length){const r=SERIES[k][i],w=W[i];hov.setAttribute("x1",X(i));hov.setAttribute("x2",X(i));hov.setAttribute("visibility","visible");dot.setAttribute("cx",X(i));dot.setAttribute("cy",Y(ys[i]));dot.setAttribute("visibility","visible");
+      const f=fc?.pts.find(p=>p.i===i);
+      showTip(e,`<b>Week of ${fmtDate(w.w)}</b>${row("Occupancy",fmt(r.pct,1)+"%")}${row("Census",fmt(r.occ,1))}${row("Staffed beds",fmt(r.beds,1))}${row("COVID inpatients (hosp)",w.cov!=null?fmt(w.cov):"n/a")}${f?row("Forecast",fmt(f.m,1)+(m==="pct"?"%":"")):""}<em>Click to load this week</em>`);}
+    else if(fc&&i>=W.length){const f=fc.pts.find(p=>p.i===i);if(f){showTip(e,`<b>Forecast +${i-S.wi} wk</b>${row("Expected",fmt(f.m,1))}${row("80% interval",fmt(f.lo,1)+" – "+fmt(f.hi,1))}`);}}
+    else hideTip();};
+  svg.onmouseleave=()=>{hideTip();hov.setAttribute("visibility","hidden");dot.setAttribute("visibility","hidden");};
+  svg.onclick=e=>{const i=idxAt(e);if(i>=0&&i<W.length)setWeek(i);};
+  // stats row
+  const unitLbl=m==="pct"?"%":"";
+  $("fcStats").innerHTML=`<div><span class="lbl">8-wk forecast</span><b>${stats.end?fmt(stats.end.m,1)+unitLbl:"—"}</b></div>
+   <div><span class="lbl">80% interval</span><b>${stats.end?fmt(stats.end.lo,0)+"–"+fmt(stats.end.hi,0)+unitLbl:"—"}</b></div>
+   <div><span class="lbl">${m==="pct"?"P(&gt;100%) wk 8":"Residual SD"}</span><b>${m==="pct"&&stats.pOver!=null?fmt(stats.pOver,0)+"%":fc?fmt(fc.sd,2):"—"}</b></div>
+   <div><span class="lbl">Backtest MAPE</span><b>${stats.mape!=null?fmt(stats.mape,1)+"% <small style='color:var(--ink-3);font-size:10px'>("+stats.n+" wks, "+fmt(stats.cover,0)+"% in band)</small>":"pick an earlier week"}</b></div>`;
+}
+
+// ================= INSIGHTS =================
+function buildInsights(){
+  const k=S.unit,u=unitDef(k),s=SERIES[k],cur=s[S.wi],pcts=s.map(r=>r.pct),out=[];
+  // 1 position
+  const rank=pcts.filter(p=>p<=cur.pct).length/pcts.length*100,a4=pcts.slice(Math.max(0,S.wi-4),S.wi);const avg4=a4.length?a4.reduce((x,y)=>x+y,0)/a4.length:cur.pct;
+  out.push({sev:cur.pct>=95?"crit":cur.pct>=85?"warn":"ok",tag:"Position",h:`${u.n} is at ${fmt(cur.pct,1)}%, the ${fmt(rank)}th percentile of all ${pcts.length} weeks`,p:`${cur.pct-avg4>=0?"Up":"Down"} ${fmt(Math.abs(cur.pct-avg4),1)} pp vs the prior 4-week average. ${fmt(cur.free=Math.max(0,cur.beds-cur.occ))} staffed beds free.`,wi:S.wi});
+  // 2 saturation streak
+  let best={len:0,end:0},run=0;pcts.forEach((p,i)=>{run=p>=95?run+1:0;if(run>best.len)best={len:run,end:i};});
+  const n95=pcts.filter(p=>p>=95).length;
+  if(best.len>0)out.push({sev:best.len>=8?"crit":"warn",tag:"Saturation",h:`${n95} of ${pcts.length} weeks at or above 95%`,p:`Longest run: ${best.len} straight weeks, ending ${fmtDate(W[best.end].w)}. Sustained >95% is where boarding and diversion risk climbs.`,wi:best.end-best.len+1});
+  else out.push({sev:"ok",tag:"Saturation",h:`Never above 95% in ${pcts.length} reported weeks`,p:`Peak was ${fmt(Math.max(...pcts),1)}%. This unit has structural headroom.`,wi:pcts.indexOf(Math.max(...pcts))});
+  // 3 seasonality
+  const mo=Array.from({length:12},()=>[]);W.forEach((w,i)=>mo[+w.w.slice(5,7)-1].push(pcts[i]));
+  const ma=mo.map(a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null);const vals=ma.filter(v=>v!=null);const hiM=ma.indexOf(Math.max(...vals)),loM=ma.indexOf(Math.min(...vals));
+  const target=W.reduce((b,w,i)=>(+w.w.slice(5,7)-1===hiM&&i<=S.wi?i:b),idxOf(W[W.length-1].w));
+  out.push({sev:ma[hiM]-ma[loM]>5?"warn":"info",tag:"Seasonality",h:`${MON[hiM]} runs hottest (${fmt(ma[hiM],1)}%), ${MON[loM]} coolest (${fmt(ma[loM],1)}%)`,p:`A ${fmt(ma[hiM]-ma[loM],1)} pp seasonal swing. Plan elective volume and agency staffing against it.`,wi:target});
+  // 4 covid sensitivity
+  const pairs=W.map((w,i)=>[w.cov,pcts[i]]).filter(x=>x[0]!=null);const r=pearson(pairs.map(x=>x[0]),pairs.map(x=>x[1]));
+  const mx=pairs.reduce((a,x)=>a+x[0],0)/pairs.length,my=pairs.reduce((a,x)=>a+x[1],0)/pairs.length;const slope=pairs.reduce((a,x)=>a+(x[0]-mx)*(x[1]-my),0)/pairs.reduce((a,x)=>a+(x[0]-mx)**2,0);
+  const peakCov=W.reduce((b,w,i)=>(w.cov||0)>(W[b].cov||0)?i:b,0);
+  out.push({sev:Math.abs(r)>0.4?"warn":"info",tag:"Driver",h:`COVID census ${Math.abs(r)>0.4?"strongly":Math.abs(r)>0.2?"moderately":"barely"} moves this unit (r = ${fmt(r,2)})`,p:`Each +10 COVID inpatients hospital-wide ≈ ${slope>=0?"+":""}${fmt(slope*10,2)} pp occupancy here (${pairs.length} weeks). ${Math.abs(r)<0.2?"Pressure here comes from other demand.":""}`,wi:peakCov});
+  // 5 forecast risk
+  const fc=forecast(k,S.wi,8,"pct");if(fc){const e=fc.pts[7],pOver=(1-normCdf((100-e.m)/((e.hi-e.m)/1.28)))*100;
+    out.push({sev:pOver>30?"crit":pOver>10?"warn":"ok",tag:"Forecast",h:`${fmt(pOver,0)}% chance of exceeding 100% within 8 weeks`,p:`Damped Holt trend projects ${fmt(e.m,1)}% (80% band ${fmt(e.lo,0)}–${fmt(e.hi,0)}%) for the week of ${S.wi+8<W.length?fmtDate(W[S.wi+8].w):"+8 weeks"}.`,wi:Math.min(W.length-1,S.wi+8)});}
+  // 6 biggest shock
+  const dd=pcts.slice(1).map((p,i)=>p-pcts[i]);const mean=dd.reduce((a,b)=>a+b,0)/dd.length,sd=Math.sqrt(dd.reduce((a,b)=>a+(b-mean)**2,0)/dd.length);
+  let bi=0;dd.forEach((v,i)=>{if(Math.abs(v)>Math.abs(dd[bi]))bi=i;});const z=(dd[bi]-mean)/sd;
+  out.push({sev:"info",tag:"Anomaly",h:`Largest weekly shock: ${dd[bi]>0?"+":""}${fmt(dd[bi],1)} pp (z = ${fmt(z,1)})`,p:`Week of ${fmtDate(W[bi+1].w)}. ${dd.filter(v=>Math.abs((v-mean)/sd)>2.5).length} weeks moved more than 2.5 standard deviations.`,wi:bi+1});
+  // ED → admission crunch day for this week
+  if(S.model){const ds=S.model.days,worst=ds.reduce((a,d,i)=>d.net<ds[a].net?i:a,0),wd=ds[worst],peak=ds.reduce((a,d,i)=>d.edOcc>ds[a].edOcc?i:a,0);
+    out.push({sev:wd.net<0?"crit":ds[peak].edOcc>=90?"warn":"ok",tag:"ED flow",h:wd.net<0?`${wd.name} is the crunch day: ${fmt(-wd.net)} admitted patients with no room`:`Every day this week has rooms for admission (tightest: ${wd.name}, ${fmt(wd.net)} spare)`,
+      p:`ED occupancy peaks ${ds[peak].name} at ${fmt(ds[peak].edOcc)}% of ${S.edSpaces} spaces. Weekend discharges drop to ~75% of weekday levels, so Monday admissions meet the fewest freed rooms.`,wi:S.wi,day:worst});}
+  // staffing: worst shift for this unit
+  if(S.model){const sh=SHIFTS.map((_,i)=>staffing(i).rows.find(r=>r.k===k));const wi2=sh.reduce((a,r,i)=>r.ratio/r.target>sh[a].ratio/sh[a].target?i:a,0),r=sh[wi2];
+    out.push({sev:r.ok?"ok":r.ratio<=r.target*1.2?"warn":"crit",tag:"Staffing",h:r.ok?`${u.n} stays within 1:${r.target} on every shift (tightest: ${SHIFTS[wi2].n}, 1:${fmt(r.ratio,1)})`:`${SHIFTS[wi2].n} shift runs 1:${fmt(r.ratio,1)} against a 1:${r.target} target`,
+      p:`${r.on} RNs for ${fmt(r.census)} patients; ${r.gap>=0?`${r.gap} RN${r.gap===1?"":"s"} of slack`:`${-r.gap} more RN${r.gap===-1?"":"s"} needed`}. Night fill (86% of schedule) is the usual pressure point.`,wi:S.wi,shift:wi2});}
+  // 7 capacity gap at 85% target
+  const need=cur.occ/0.85-cur.beds;
+  out.push({sev:need>0?"warn":"ok",tag:"Capacity",h:need>0?`${fmt(need)} more staffed beds needed to run at an 85% target`:`${fmt(-need)} beds of slack below an 85% target`,p:`85% is a common safe-occupancy planning target. Staffed beds changed ${fmt(cur.beds-s[0].beds,0)} since ${fmtDate(W[0].w)}.`,wi:S.wi});
+  return out;
+}
+function drawInsights(){
+  const el=$("insights");el.innerHTML="";const C={crit:"var(--crit)",warn:"var(--warn)",ok:"var(--ok)",info:"var(--cool)"};
+  buildInsights().forEach(x=>{const b=document.createElement("button");b.type="button";b.className="ins";b.style.setProperty("--sev",C[x.sev]);
+    b.innerHTML=`<div class="k"><span>${x.tag}</span><i>→ ${fmtDate(W[x.wi].w)}</i></div><h4>${x.h}</h4><p>${x.p}</p>`;b.onclick=()=>{if(x.day!=null)S.day=x.day;if(x.shift!=null)S.shift=x.shift;setWeek(x.wi);};el.appendChild(b);});
+}
+
+// ================= HEATMAP =================
+function heatColor(p){const stops=[[60,[36,50,74]],[78,[61,109,179]],[88,[242,179,61]],[96,[255,91,31]],[105,[255,45,45]]];p=Math.max(60,Math.min(105,p));
+  for(let i=1;i<stops.length;i++){if(p<=stops[i][0]){const[a,ca]=stops[i-1],[b,cb]=stops[i],t=(p-a)/(b-a);return `rgb(${ca.map((c,j)=>Math.round(c+(cb[j]-c)*t)).join(",")})`;}}return "rgb(255,45,45)";}
+const MONTHS=[...new Set(W.map(w=>w.w.slice(0,7)))];
+function drawHeat(){
+  const svg=$("heat"),lw=130,top=18,ch=34,cw=(1000-lw-6)/MONTHS.length;let g="";
+  MONTHS.forEach((m,j)=>{if(m.endsWith("-01")||j===0)g+=`<text x="${lw+j*cw}" y="12" fill="#6e6f76" font-size="10" font-family="JetBrains Mono,monospace">${m.slice(0,4)}</text>`;});
+  UNITS.forEach((u,r)=>{const y=top+r*ch;g+=`<text x="${lw-8}" y="${y+ch/2+4}" text-anchor="end" fill="${u.k===S.unit?"#f2f1ee":"#a6a6ad"}" font-size="11" font-weight="${u.k===S.unit?700:500}">${u.short}</text>`;
+    MONTHS.forEach((m,j)=>{const idx=W.map((w,i)=>w.w.startsWith(m)?i:-1).filter(i=>i>=0);const v=idx.reduce((s,i)=>s+SERIES[u.k][i].pct,0)/idx.length;
+      g+=`<rect class="cell" x="${lw+j*cw+1}" y="${y+1}" width="${cw-2}" height="${ch-2}" rx="3" fill="${heatColor(v)}" data-u="${u.k}" data-m="${m}" data-v="${v.toFixed(1)}" data-i="${idx[0]}"/>`;});
+    if(u.k===S.unit)g+=`<rect x="${lw-2}" y="${y-1}" width="${1000-lw-2}" height="${ch+2}" rx="5" fill="none" stroke="#ff5b1f" stroke-width="1.5"/>`;});
+  const cm=W[S.wi].w.slice(0,7),cj=MONTHS.indexOf(cm);g+=`<rect x="${lw+cj*cw}" y="${top-2}" width="${cw}" height="${UNITS.length*ch+4}" fill="none" stroke="#f2f1ee" stroke-width="1.5" rx="3"/>`;
+  svg.innerHTML=g;
+  svg.querySelectorAll("rect.cell").forEach(c=>{const d=c.dataset;
+    c.onmousemove=e=>{const [y,mm]=d.m.split("-");showTip(e,`<b>${unitDef(d.u).n}</b>${row("Month",MON[+mm-1]+" "+y)}${row("Avg occupancy",d.v+"%")}<em>Click to load</em>`);};
+    c.onmouseleave=hideTip;c.onclick=()=>{S.unit=d.u;S.wi=+d.i;S.scen=null;render();ward3d.focus(d.u);};});
+}
+
+// ================= NURSE STAFFING PANEL =================
+function drawStaffing(){
+  const all=SHIFTS.map((_,i)=>staffing(i)),cur=all[S.shift],sh=SHIFTS[S.shift],g=cur.sg;
+  $("stNote").textContent=`${DAYS[S.day]} · ${sh.n} shift (${sh.h}) · week of ${fmtDate(W[S.wi].w)}. Targets: Massachusetts ICU staffing law (1:1–1:2) and California Title 22 minimum ratios.`;
+  const inp=cur.rows,on=inp.reduce((a,r)=>a+r.on,0),need=inp.reduce((a,r)=>a+r.need,0),bad=inp.filter(r=>!r.ok);
+  const K=[["RNs on duty",fmt(on),`${sh.n} shift, all care areas`,"",`Sum of scheduled RNs on shift across ${inp.length} care areas.`],
+    ["RNs needed",fmt(need),"to meet every target","",`Load ÷ target ratio per care area, rounded up.`],
+    [on-need>=0?"RN surplus":"RN shortfall",fmt(Math.abs(on-need)),"hospital-wide",on-need>=0?"var(--ok)":"var(--crit)",`RNs on duty − RNs needed. A surplus in one unit covers another only through float staff.`],
+    ["Out of ratio",`${bad.length} / ${inp.length}`,bad.length?bad.map(r=>r.short).join(", "):"all within target",bad.length?"var(--crit)":"var(--ok)",`Care areas where patients per RN exceed the target.`],
+    ["Surgical cases",fmt(g.cases),`${DAYS[S.day]} · ${fmt(g.ip)} inpatient`,"",`Inpatient surgical cases from elective and ED admissions, plus ${OUTPT} outpatient cases each.`],
+    ["OR utilization",fmt(g.util)+"%",`${fmt(g.inUse)} of ${g.staffed} staffed ORs`,g.util>=85?"var(--warn)":"",`ORs running ÷ ORs staffed this shift.`]];
+  const k=$("stKpis");k.innerHTML="";
+  K.forEach(x=>{const t=document.createElement("div");t.className="kpi";t.innerHTML=`<span class="lbl">${x[0]}</span><div class="stat num" style="color:${x[3]||"inherit"}">${x[1]}</div><div class="delta flat">${x[2]}</div>`;
+    t.onmousemove=e=>showTip(e,`<b>${x[0]} · ${x[1]}</b><em style="color:var(--ink-2)">${x[4]}</em>`);t.onmouseleave=hideTip;k.appendChild(t);});
+  const tb=$("stTable");tb.innerHTML=`<div class="tr th"><span>Care area</span><span>Load</span><span>RNs on</span><span>Need</span><span>Gap</span><span>Actual</span><span>Target</span><span style="text-align:right">Ratio by shift · click</span></div>`;
+  const go=k2=>{if(["ed","or","pacu"].includes(k2)){S.focusZone=k2;render();ward3d.focus(k2);}else selectUnit(k2,true);};
+  cur.rows.forEach((r,ri)=>{const b=document.createElement("div");const on2=S.focusZone?r.k===S.focusZone:r.k===S.unit;b.className="tr"+(on2?" on":"");b.tabIndex=0;b.setAttribute("role","button");
+    const pct=Math.min(100,r.ratio/(r.target*1.5)*100),col=ratioColor(r);
+    b.innerHTML=`<span>${r.n}<div class="ratio-bar"><i style="width:${pct}%;background:${col}"></i></div></span><span>${fmt(r.census)}</span><span>${r.on}</span><span>${r.need}</span><span style="color:${r.gap<0?"var(--crit)":"var(--ok)"}">${r.gap>=0?"+":"−"}${Math.abs(r.gap)}</span><span style="color:${col}">1:${fmt(r.ratio,1)}</span><span>1:${r.target}</span><span class="shchips"></span>`;
+    const chips=b.querySelector(".shchips");
+    all.forEach((A,si)=>{const x=A.rows[ri],c=document.createElement("button");c.type="button";c.className=si===S.shift?"cur":"";c.style.color=ratioColor(x);c.textContent=`${SHIFTS[si].n[0]} 1:${fmt(x.ratio,1)}`;
+      c.onclick=e=>{e.stopPropagation();S.shift=si;go(r.k);};
+      c.onmousemove=e=>{e.stopPropagation();showTip(e,`<b>${r.n} · ${SHIFTS[si].n}</b>${row("Shift",SHIFTS[si].h)}${row("Load",fmt(x.census)+" "+x.what)}${row("RNs on duty",x.on)}${row("Per RN",fmt(x.ratio,2))}${row("Target","1:"+x.target)}${row("RNs needed",x.need)}<em>Click to view this shift</em>`);};chips.appendChild(c);});
+    b.onmousemove=e=>{if(e.target.closest(".shchips"))return;showTip(e,`<b>${r.n} · ${sh.n}</b>${row("Load",fmt(r.census,1)+" "+r.what)}${row("RNs scheduled",r.plan)}${row("RNs on duty",r.on)}${row("Per RN",fmt(r.ratio,2))}${row("Target","1:"+r.target)}${row(r.gap>=0?"Spare RNs":"RNs short",Math.abs(r.gap))}<em>Click to fly to this area in 3D</em>`);};
+    b.onmouseleave=hideTip;b.onclick=()=>go(r.k);b.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go(r.k);}};tb.appendChild(b);});
+  [$("stShift"),$("towerShift")].forEach(el=>el.querySelectorAll("button").forEach((b,i)=>b.setAttribute("aria-pressed",i===S.shift)));
+}
+
+// ================= RENDER =================
+// ================= ED → ADMISSION PANEL =================
+function drawED(){
+  const Mo=S.model,D=Mo.days[S.day],ed=Mo.ed;
+  $("edNote").textContent=ed.exact?`ED visits reported this week: ${fmt(ed.v)} (${fmt(ed.v/7)} a day).`:`ED visits were not reported this week. Using the nearest reported week (${fmtDate(W[ed.wi].w)}: ${fmt(ed.v)} visits).`;
+  const occC=D.edOcc>=100?"var(--crit)":D.edOcc>=85?"var(--warn)":"var(--ok)";
+  const K=[
+    ["ED arrivals",fmt(D.arrivals),"per day · "+D.name,"",`Weekly ED visits ÷ 7 × ${D.name} arrival factor ${ARR[S.day]}.`],
+    ["In ED (avg)",fmt(D.inED),"patients at once","",`Arrivals × 298-min median stay ÷ 1,440 min (Little's law).`],
+    ["ED occupancy",fmt(D.edOcc)+"%",`${fmt(D.edCensus)} of ${S.edSpaces} spaces`,occC,`(Patients in treatment + admitted boarders) ÷ treatment spaces.`],
+    ["Admit requests",fmt(D.edAdmits),"from ED / day","",`ED arrivals × ${S.admitRate}% admit rate.`],
+    ["Rooms for admission",fmt(D.avail),"open + discharges","var(--ok)",`Open staffed rooms at the start of the day plus expected discharges (census ÷ LOS × ${D.name} discharge factor).`],
+    [D.net>=0?"Rooms left":"ED boarders",fmt(Math.abs(D.net)),D.net>=0?"after all admissions":"admitted, no room",D.net>=0?"var(--ok)":"var(--crit)",`Rooms for admission − (ED admits + elective/transfer admits + hallway patients).`]];
+  const el=$("edKpis");el.innerHTML="";
+  K.forEach(k=>{const t=document.createElement("div");t.className="kpi";t.innerHTML=`<span class="lbl">${k[0]}</span><div class="stat num" style="color:${k[3]||"inherit"}">${k[1]}</div><div class="delta flat">${k[2]}</div>`;
+    t.onmousemove=e=>showTip(e,`<b>${k[0]} · ${k[1]}</b><em style="color:var(--ink-2)">${k[4]}</em>`);t.onmouseleave=hideTip;el.appendChild(t);});
+  // day-of-week chart
+  const svg=$("edDays"),Wd=560,Hh=230,pl=36,pr=40,pt=16,pb=28,gw=(Wd-pl-pr)/7;
+  const mx=Math.max(...Mo.days.flatMap(d=>[d.avail,d.demand]))*1.12,Y=v=>pt+(1-v/mx)*(Hh-pt-pb),Yo=v=>pt+(1-Math.min(160,v)/160)*(Hh-pt-pb);
+  let g="";for(let i=0;i<=4;i++){const v=mx/4*i;g+=`<line x1="${pl}" x2="${Wd-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#2a2b30"/><text x="${pl-6}" y="${Y(v)+3}" text-anchor="end" fill="#6e6f76" font-size="10" font-family="JetBrains Mono,monospace">${fmt(v)}</text>`;}
+  [0,50,100,150].forEach(v=>g+=`<text x="${Wd-pr+6}" y="${Yo(v)+3}" fill="#6aa8ff" font-size="10" font-family="JetBrains Mono,monospace">${v}%</text>`);
+  g+=`<line x1="${pl}" x2="${Wd-pr}" y1="${Yo(100)}" y2="${Yo(100)}" stroke="#6aa8ff" stroke-dasharray="4 4" opacity=".6"/>`;
+  let line="";
+  Mo.days.forEach((d,i)=>{const x=pl+i*gw,sel=i===S.day,bw=gw*0.28;
+    g+=`<rect x="${x+2}" y="${pt}" width="${gw-4}" height="${Hh-pt-pb}" rx="6" fill="${sel?"rgba(255,91,31,.08)":"transparent"}" stroke="${sel?"rgba(255,91,31,.5)":"none"}" class="dayhit" data-d="${i}" style="cursor:pointer"/>`;
+    g+=`<rect x="${x+gw/2-bw-2}" y="${Y(d.avail)}" width="${bw}" height="${Y(0)-Y(d.avail)}" rx="2" fill="#3ecf8e" pointer-events="none"/>`;
+    g+=`<rect x="${x+gw/2+2}" y="${Y(d.demand)}" width="${bw}" height="${Y(0)-Y(d.demand)}" rx="2" fill="#ff5b1f" pointer-events="none"/>`;
+    g+=`<text x="${x+gw/2}" y="${Hh-10}" text-anchor="middle" fill="${sel?"#f2f1ee":"#a6a6ad"}" font-size="11" font-weight="${sel?700:500}" pointer-events="none">${d.name}</text>`;
+    line+=(i?"L":"M")+(x+gw/2)+" "+Yo(d.edOcc);});
+  g+=`<path d="${line}" fill="none" stroke="#6aa8ff" stroke-width="2" pointer-events="none"/>`;
+  Mo.days.forEach((d,i)=>{const x=pl+i*gw+gw/2;g+=`<circle cx="${x}" cy="${Yo(d.edOcc)}" r="${i===S.day?5:3.5}" fill="${d.edOcc>=100?"#ff4d4d":"#6aa8ff"}" stroke="#141518" pointer-events="none"/>`;});
+  svg.innerHTML=g;
+  svg.querySelectorAll(".dayhit").forEach(r=>{const i=+r.dataset.d,d=Mo.days[i];
+    r.onmousemove=e=>showTip(e,`<b>${d.name} · week of ${fmtDate(W[S.wi].w)}</b>${row("ED arrivals",fmt(d.arrivals))}${row("ED occupancy",fmt(d.edOcc)+"%")}${row("Rooms for admission",fmt(d.avail))}${row("Admission demand",fmt(d.demand))}${row(d.net>=0?"Rooms left":"ED boarders",fmt(Math.abs(d.net)))}<em>Click to show this day in 3D</em>`);
+    r.onmouseleave=hideTip;r.onclick=()=>{S.day=i;render();};});
+  // per-unit table
+  const tb=$("edTable");tb.innerHTML=`<div class="tr th"><span>Unit</span><span>Open</span><span>Disch.</span><span>Avail.</span><span>Demand</span><span>Net</span></div>`;
+  UNITS.forEach(u=>{const x=D.units[u.k],b=document.createElement("button");b.type="button";b.className="tr"+(u.k===S.unit?" on":"");
+    b.innerHTML=`<span>${u.short}</span><span>${fmt(x.open)}</span><span>${fmt(x.dis)}</span><span>${fmt(x.avail)}</span><span>${fmt(x.demand)}</span><span style="color:${x.net<0?"var(--crit)":"var(--ok)"}">${x.net>=0?"+":"−"}${fmt(Math.abs(x.net))}</span>`;
+    b.onmousemove=e=>showTip(e,`<b>${u.n} · ${D.name}</b>${row("Open staffed rooms",fmt(x.open,1))}${row("Discharges expected",fmt(x.dis,1))}${row("ED admits",fmt(x.edA,1))}${row("Elective / transfer",fmt(x.other,1))}${row("Hallway patients",fmt(x.hall,1))}<em>Click to select and fly to this unit</em>`);
+    b.onmouseleave=hideTip;b.onclick=()=>selectUnit(u.k,true);tb.appendChild(b);});
+  $("oRate").textContent=S.admitRate+"%";$("oSpaces").textContent=S.edSpaces;
+  $("dayChips").querySelectorAll("button").forEach((b,i)=>b.setAttribute("aria-pressed",i===S.day));
+}
+
+function render(){
+  S.model=dayModel(S.wi);
+  const w=W[S.wi],u=unitDef(S.unit),p=project(S.unit,S.wi);
+  week.value=S.wi;$("weekOut").textContent="Week of "+fmtDate(w.w);$("weekLabel").textContent=fmtDate(w.w);
+  tabs.querySelectorAll(".utab").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===S.unit));
+  scen.querySelectorAll(".sbtn").forEach(b=>b.setAttribute("aria-pressed",b.dataset.id===S.scen));
+  LV.forEach(([id,key,o,f])=>$(o).textContent=f(S.lv[key]));
+  $("leverUnit").textContent=u.n;
+  $("pOcc").textContent=fmt(p.pct)+"%";$("pShort").textContent=fmt(p.short);$("pFree").textContent=fmt(p.free);
+  $("pShort").style.color=p.short>0?"var(--crit)":"";
+  const lvOn=S.lv.demand||S.lv.staff||S.lv.los||S.lv.flex;
+  $("unitName").textContent=u.n+(lvOn?" · what-if":"");
+  $("edVisits").textContent=w.ed!=null?fmt(w.ed):"Not reported";
+  $("edRing").setAttribute("stroke-dashoffset",w.ed!=null?(351.9*(1-Math.min(1,w.ed/2500))).toFixed(1):351.9);
+  const D=S.model.days[S.day];
+  $("board").textContent=`${D.name} · ED ${fmt(D.edOcc)}% · boarding ${fmt(D.board)}`;
+  if(w.ed==null)$("edVisits").textContent=`~${fmt(S.model.ed.v)} (est.)`;
+  drawSankey();drawKpis();drawGauge(p);drawED();drawStaffing();drawBigTrend();drawInsights();drawHeat();ward3d.update();
+}
+
+// ================= 3D HOSPITAL FLOOR =================
+const ward3d=(function(){
+  const canvas=$("three"),host=$("towerTop"),labels=$("zlabels"),card=$("bedcard");
+  if(!window.THREE||!THREE.OrbitControls){const f=document.createElement("div");f.className="three-fallback";f.textContent="3D view could not load.";host.appendChild(f);return{update(){},focus(){}};}
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.outputEncoding=THREE.sRGBEncoding;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x141519);scene.fog=new THREE.Fog(0x141519,400,900);
+  const cam=new THREE.PerspectiveCamera(38,1,0.1,3000);cam.position.set(120,140,180);
+  const ctl=new THREE.OrbitControls(cam,canvas);ctl.enableDamping=true;ctl.maxPolarAngle=Math.PI*0.48;ctl.minDistance=5;ctl.autoRotate=!reduce;ctl.autoRotateSpeed=0.35;
+  scene.add(new THREE.HemisphereLight(0xb8bed4,0x1a1410,0.75));
+  const key=new THREE.DirectionalLight(0xffffff,0.65);key.position.set(60,160,50);scene.add(key);
+  const rim=new THREE.PointLight(0xff5b1f,0.9,500);rim.position.set(-120,40,-80);scene.add(rim);
+  const std=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:0.6,metalness:0.2},o));
+  const M={
+    floor:std(0xffffff,{roughness:0.8}),wall:std(0x3b3d45,{roughness:0.5,metalness:0.3}),
+    glass:std(0x8fa3c0,{transparent:true,opacity:0.22,roughness:0.05,metalness:0.4}),
+    curtain:std(0x5b7fa8,{transparent:true,opacity:0.45,roughness:0.9}),
+    window:new THREE.MeshStandardMaterial({color:0x9cc7ff,emissive:0x6f9fe0,emissiveIntensity:0.35}),
+    dome:new THREE.MeshBasicMaterial({color:0xffffff}),
+    frame:std(0x8a8c94,{metalness:0.8,roughness:0.35}),mattress:std(0xe2e0da,{roughness:0.9}),pillow:std(0xf2f1ee,{roughness:0.95}),
+    head:std(0x2a2b30,{metalness:0.6,roughness:0.4}),
+    blanket:std(0xff5b1f,{emissive:0xff4a10,emissiveIntensity:0.45,roughness:0.5}),
+    blanketDis:std(0xf2b33d,{emissive:0xb07a10,emissiveIntensity:0.4,roughness:0.5}),
+    blanketEd:std(0x6aa8ff,{emissive:0x2d5fae,emissiveIntensity:0.45}),
+    blanketBoard:std(0xb07cff,{emissive:0x6a3cc0,emissiveIntensity:0.55}),
+    over:std(0xff2d2d,{emissive:0xff1a1a,emissiveIntensity:0.8}),
+    screen:new THREE.MeshStandardMaterial({color:0x111111,emissive:0x3ecf8e,emissiveIntensity:0.9}),
+    bath:std(0x6b7280,{roughness:0.3,metalness:0.1}),porcelain:std(0xf4f4f2,{roughness:0.2}),
+    chair:std(0x2f3a4a),vent:std(0x30333a,{metalness:0.5}),corridor:std(0x26272c,{roughness:0.4,metalness:0.4}),
+    station:std(0x4a3a30,{roughness:0.5}),strip:new THREE.MeshBasicMaterial({color:0xff5b1f}),stripOff:new THREE.MeshBasicMaterial({color:0x3a3b42}),
+    orTable:std(0x9aa3ad,{metalness:0.7,roughness:0.3}),orLight:new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xfff4d6,emissiveIntensity:0.9}),
+    orLightOff:std(0x55575e,{metalness:0.6}),anes:std(0x3c6e71,{metalness:0.3}),drape:std(0x2f8f83,{emissive:0x0f4a42,emissiveIntensity:0.4}),
+    scrub:std(0x2dd4bf,{emissive:0x0d6b5f,emissiveIntensity:0.35}),skin:std(0xd9b38c,{roughness:0.8}),
+    slab:std(0x1c1d22,{metalness:0.1,roughness:0.9}),slabSel:std(0x2a211c,{emissive:0x2a1206,metalness:0.2}),
+    column:std(0x2c2e35,{metalness:0.4}),core:std(0x25262c,{metalness:0.3,roughness:0.5}),
+    pad:std(0x2a2b30,{roughness:0.7}),padMark:new THREE.MeshBasicMaterial({color:0xf2f1ee}),
+    hover:new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true})
+  };
+  const ST={
+    occ:{floor:0x6e3a22,dome:0xff5b1f,label:"Occupied"},
+    dis:{floor:0x6b5822,dome:0xf2b33d,label:"Discharge expected today"},
+    edq:{floor:0x24456e,dome:0x6aa8ff,label:"Held for an ED admission"},
+    open:{floor:0x235a42,dome:0x3ecf8e,label:"Clean, ready for admission"},
+    closed:{floor:0x3a2424,dome:0x55302f,label:"Closed, no nurse staffing"},
+    edpt:{floor:0x24456e,dome:0x6aa8ff,label:"ED patient in treatment"},
+    board:{floor:0x45305e,dome:0xb07cff,label:"Admitted, boarding in ED"},
+    edopen:{floor:0x2c3a33,dome:0x3ecf8e,label:"Open ED bay"},
+    orUse:{floor:0x6e3a22,dome:0xff5b1f,label:"Surgery in progress"},
+    orTurn:{floor:0x6b5822,dome:0xf2b33d,label:"Turnover, cleaning"},
+    orOpen:{floor:0x235a42,dome:0x3ecf8e,label:"Staffed, ready for next case"},
+    pacuOcc:{floor:0x6e3a22,dome:0xff5b1f,label:"Recovering after surgery"},
+    pacuOpen:{floor:0x2c3a33,dome:0x3ecf8e,label:"Open recovery bay"}
+  };
+  const C=k=>new THREE.Color(k);
+  const H=1.5,FH=12; // cut-away wall height; floor-to-floor spacing (exploded for visibility)
+  const TYPE={
+    ward:{RW:3.2,RD:4.2,bath:true,front:"solid",bedX:0.3},
+    icu:{RW:3.8,RD:4.4,bath:false,front:"glass",bedX:0},
+    ed:{RW:2.6,RD:3.0,bath:false,front:"none",bedX:0},
+    pacu:{RW:2.6,RD:3.0,bath:false,front:"none",bedX:0},
+    or:{RW:6.0,RD:6.0,bath:false,front:"wide",bedX:0}
+  };
+  const CORR=2.8,PAIRGAP=0.8;
+  const hoverBox=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),M.hover);hoverBox.visible=false;scene.add(hoverBox);
+  const tmp=new THREE.Object3D();
+  function rng(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+  function hashStr(t){let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;}
+  const geoCache={};const box=(w,h,d)=>{const k=w+"|"+h+"|"+d;return geoCache[k]||(geoCache[k]=new THREE.BoxGeometry(w,h,d));};
+  let group=null,zones={},pickMeshes=[],floorMeshes=[];const labelEls={},levelEls={};
+  function inst(geo,mat,n){const m=new THREE.InstancedMesh(geo,mat,Math.max(1,n));m.count=n;group.add(m);return m;}
+
+  // ---- building program: one zone per department, stacked on six levels
+  const ZDEF=[
+    {id:"ed",unit:"ed",type:"ed",lv:1},
+    {id:"or",unit:"or",type:"or",lv:2},{id:"pacu",unit:"pacu",type:"pacu",lv:2},
+    {id:"icu",unit:"icu",type:"icu",lv:3},{id:"picu",unit:"picu",type:"icu",lv:3},
+    {id:"msA",unit:"medsurg",type:"ward",lv:4,part:0},{id:"msB",unit:"medsurg",type:"ward",lv:5,part:1},
+    {id:"peds",unit:"peds",type:"ward",lv:6}];
+  const LEVELS=[{lv:1,n:"Emergency"},{lv:2,n:"Surgery · OR & PACU"},{lv:3,n:"Critical Care"},{lv:4,n:"Med/Surg A"},{lv:5,n:"Med/Surg B"},{lv:6,n:"Pediatrics"}];
+  const ZN={ed:"Emergency Dept",or:"Operating Rooms",pacu:"PACU (recovery)",icu:"Adult ICU",picu:"Peds & Neonatal ICU",msA:"Adult Med/Surg · A",msB:"Adult Med/Surg · B",peds:"Pediatric Ward"};
+  const ZS={ed:"ED",or:"OR suite",pacu:"PACU",icu:"Adult ICU",picu:"PICU/NICU",msA:"Med/Surg A",msB:"Med/Surg B",peds:"Peds Ward"};
+  const PFX={ed:"ED",or:"OR",pacu:"PACU",icu:"ICU",picu:"PIC",msA:"4",msB:"5",peds:"6"};
+  const ROOMTYPE={ward:"Single room · private bathroom",icu:"ICU room · glass front, no bathroom",ed:"ED bay · curtained",pacu:"Recovery bay · curtained",or:"Operating room · laminar-flow light"};
+  const zoneOf=id=>ZDEF.find(z=>z.id===id);
+  const SCALE={},DIM={};
+  ZDEF.forEach(z=>{
+    let maxB,sc;
+    if(z.unit==="ed"){maxB=140;sc=2;}else if(z.unit==="or"){maxB=OR_ROOMS;sc=1;}else if(z.unit==="pacu"){maxB=PACU_BAYS;sc=1;}
+    else{maxB=Math.max(...SERIES[z.unit].map(r=>r.beds));sc=Math.max(1,Math.ceil(maxB/96));}
+    SCALE[z.id]=sc;
+    const T=TYPE[z.type];let n=Math.ceil(maxB/sc)+(["ed","or","pacu"].includes(z.unit)?0:Math.ceil(Math.min(80/sc,12)));
+    if(z.unit==="medsurg")n=Math.ceil(n/2);
+    const pairD=2*T.RD+CORR+PAIRGAP;let cols=Math.max(4,Math.round(Math.sqrt(n*pairD/(2*T.RW))));const pairs=Math.ceil(n/(2*cols));
+    DIM[z.id]=Object.assign({},z,T,{n,cols,pairs,pairD,w:cols*T.RW+2,d:pairs*pairD+4});
+  });
+  const GAP=5,lvW={},footD=Math.max(...ZDEF.map(z=>DIM[z.id].d));
+  LEVELS.forEach(L=>{lvW[L.lv]=ZDEF.filter(z=>z.lv===L.lv).reduce((s,z)=>s+DIM[z.id].w,0)+GAP*(ZDEF.filter(z=>z.lv===L.lv).length-1);});
+  const footW=Math.max(...Object.values(lvW)),SPAN=Math.max(footW,footD,LEVELS.length*FH*1.4);
+  LEVELS.forEach(L=>{let x=-footW/2;ZDEF.filter(z=>z.lv===L.lv).forEach(z=>{const D=DIM[z.id];D.left=x;D.cx=x+D.w/2;D.back=-footD/2;D.y=(L.lv-1)*FH;x+=D.w+GAP;});});
+  scene.fog.near=SPAN*3.5;scene.fog.far=SPAN*8;ctl.maxDistance=SPAN*5;cam.far=SPAN*14;cam.updateProjectionMatrix();
+
+  // ---- static shell: slabs, columns, circulation core, rooftop helipad
+  const levelStatic={};
+  LEVELS.forEach(L=>{const g=new THREE.Group(),y=(L.lv-1)*FH;
+    const slab=new THREE.Mesh(box(footW+6,0.35,footD+6),M.slab);slab.position.set(0,y-0.2,0);g.add(slab);
+    const edge=new THREE.LineSegments(new THREE.EdgesGeometry(box(footW+6,0.35,footD+6)),new THREE.LineBasicMaterial({color:0x4a4b52}));edge.position.copy(slab.position);g.add(edge);g.userData.edge=edge;
+    if(L.lv<LEVELS.length)[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{const c=new THREE.Mesh(box(0.6,FH,0.6),M.column);c.position.set(sx*(footW/2+2.7),y+FH/2,sz*(footD/2+2.7));g.add(c);});
+    scene.add(g);levelStatic[L.lv]=g;
+    const el=document.createElement("button");el.type="button";el.className="lvlabel";el.textContent=`L${L.lv} · ${L.n}`;el.onclick=()=>focusLevel(L.lv);labels.appendChild(el);levelEls[L.lv]=el;});
+  {const core=new THREE.Mesh(box(5,LEVELS.length*FH+2,7),M.core);core.position.set(-footW/2-7,(LEVELS.length*FH)/2-1,0);scene.add(core);
+   const shaft=new THREE.Mesh(box(0.1,LEVELS.length*FH,2.4),M.window);shaft.position.set(-footW/2-4.45,(LEVELS.length*FH)/2,0);scene.add(shaft);
+   const roofY=LEVELS.length*FH-0.2;const pad=new THREE.Mesh(new THREE.CylinderGeometry(7,7,0.3,40),M.pad);pad.position.set(footW/2-10,roofY,0);scene.add(pad);levelStatic.roof=pad;
+   const ring=new THREE.Mesh(new THREE.TorusGeometry(6,0.12,6,48),M.strip);ring.rotation.x=Math.PI/2;ring.position.set(footW/2-10,roofY+0.2,0);scene.add(ring);levelStatic.ring=ring;
+   [[-1.6,0,0.5,0.1,4],[1.6,0,0.5,0.1,4],[0,0,3.2,0.1,0.5]].forEach(([x,z,w,h,d])=>{const m=new THREE.Mesh(box(w,h,d),M.padMark);m.position.set(footW/2-10+x,roofY+0.22,z);scene.add(m);(levelStatic.h=levelStatic.h||[]).push(m);});}
+  ZDEF.forEach(z=>{const el=document.createElement("div");el.className="zlabel";el.innerHTML=`<b>${ZS[z.id]}</b><span></span>`;
+    el.onclick=()=>clickZone(z.id);el.onmousemove=e=>showTip(e,zoneTip(z.id));el.onmouseleave=hideTip;labels.appendChild(el);labelEls[z.id]=el;});
+
+  function roomPos(D,i){const per=2*D.cols,pair=Math.floor(i/per),side=Math.floor((i%per)/D.cols),c=i%D.cols;
+    const z0=D.back+1.2+pair*D.pairD,x=D.left+1+D.RW/2+c*D.RW,z=side===0?z0+D.RD/2:z0+D.RD+CORR+D.RD/2;return{x,z,side,pair,c};}
+
+  // statuses for a whole inpatient unit (Med/Surg is then split across two floors)
+  function unitStatuses(uk){
+    const sc=SCALE[uk==="medsurg"?"msA":uk],D0=DIM[uk==="medsurg"?"msA":uk],cap=uk==="medsurg"?D0.n*2:D0.n;
+    const model=S.model.days[S.day],U=model.units[uk],p=project(uk,S.wi,uk===S.unit);
+    const nStaff=Math.min(cap,Math.max(1,Math.round(p.beds/sc))),nClosed=Math.min(nStaff-1,Math.round(p.closed/sc)),nFlex=Math.min(cap-nStaff,Math.round((uk===S.unit?S.lv.flex:0)/sc));
+    const n=nStaff+nFlex,usable=n-nClosed,nOcc=Math.min(usable,Math.round(p.census*SHIFTS[S.shift].cen/sc)),nDis=Math.min(nOcc,Math.round(U.dis/sc)),open=usable-nOcc,nEdq=Math.min(open,Math.round(U.edA/sc));
+    const status=Array(n).fill("open"),R=rng(hashStr(W[S.wi].w+uk)),order=[...Array(n).keys()].sort(()=>R()-0.5);
+    let o=0;order.slice(0,nClosed).forEach(i=>status[i]="closed");order.slice(nClosed).forEach(i=>{if(o<nOcc){status[i]=o<nDis?"dis":"occ";o++;}});
+    let q=0;order.forEach(i=>{if(status[i]==="open"&&q<nEdq){status[i]="edq";q++;}});
+    return{status,nStaff,nOver:Math.round(p.short/sc),p,U};
+  }
+  let STF=null;const staffRow=k=>STF.rows.find(r=>r.k===k);
+
+  function buildZone(zid,cache){
+    const D=DIM[zid],z=zoneOf(zid),sc=SCALE[zid],model=S.model.days[S.day];
+    const sel=S.focusZone?S.focusZone===zid:(z.unit===S.unit&&(z.unit!=="medsurg"||true));
+    let status=[],nOver=0,stats={},nStaffRooms=0;
+    if(z.unit==="ed"){
+      const n=Math.round(S.edSpaces/sc),shiftIn=model.arrivals*SHIFTS[S.shift].ed*ED_LOS_MIN/480;
+      const pts=Math.round(shiftIn/sc),brd=Math.round(model.board/sc),inBays=Math.min(n,pts+brd),nB=Math.min(brd,inBays),nP=inBays-nB;nOver=Math.min(D.cols*2,Math.max(0,pts+brd-n));
+      status=Array(n).fill("edopen");const R=rng(hashStr(W[S.wi].w+zid+S.day+S.shift)),order=[...Array(n).keys()].sort(()=>R()-0.5);
+      order.slice(0,nB).forEach(i=>status[i]="board");order.slice(nB,nB+nP).forEach(i=>status[i]="edpt");
+      stats={pct:(shiftIn+model.board)/S.edSpaces*100,inED:shiftIn,board:model.board};nStaffRooms=n;
+    }else if(z.unit==="or"){
+      const sg=STF.sg,n=OR_ROOMS,use=Math.round(sg.inUse),turn=Math.round(sg.turn);status=Array(n).fill("closed");
+      for(let i=0;i<sg.staffed;i++)status[i]=i<use?"orUse":i<use+turn?"orTurn":"orOpen";
+      const R=rng(hashStr(W[S.wi].w+zid+S.day+S.shift));for(let i=n-1;i>0;i--){const j=Math.floor(R()*(i+1));[status[i],status[j]]=[status[j],status[i]];}
+      stats={pct:sg.util,sg};nStaffRooms=n;
+    }else if(z.unit==="pacu"){
+      const sg=STF.sg,n=PACU_BAYS,occ=Math.round(sg.pacu);status=Array(n).fill("closed");
+      for(let i=0;i<sg.pacuStaffed;i++)status[i]=i<occ?"pacuOcc":"pacuOpen";
+      stats={pct:sg.pacuStaffed?sg.pacu/sg.pacuStaffed*100:0,sg};nStaffRooms=n;
+    }else{
+      const U=cache[z.unit]||(cache[z.unit]=unitStatuses(z.unit));
+      if(z.unit==="medsurg"){const half=Math.ceil(U.status.length/2);status=z.part===0?U.status.slice(0,half):U.status.slice(half);nOver=Math.min(D.cols*2,z.part===0?Math.ceil(U.nOver/2):Math.floor(U.nOver/2));}
+      else{status=U.status;nOver=Math.min(D.cols*2,U.nOver);}
+      stats={pct:U.p.pct,p:U.p};nStaffRooms=status.length;
+    }
+    status=status.slice(0,D.n);
+    const n=status.length,y0=D.y;
+    const per=2*D.cols,pairsUsed=Math.max(1,Math.ceil(n/per)),usedD=pairsUsed*D.pairD+3,fz=D.back+usedD/2;
+    const slab=new THREE.Mesh(box(D.w,0.1,usedD),sel?M.slabSel:std(0x1e1f24,{metalness:0.4}));slab.position.set(D.cx,y0-0.02,fz);slab.userData={zone:zid,lv:z.lv};group.add(slab);floorMeshes.push(slab);
+    [[0,-usedD/2,D.w,0.1],[0,usedD/2,D.w,0.1]].forEach(([x,zz,w,d])=>{const s=new THREE.Mesh(box(w,0.06,d),sel?M.strip:M.stripOff);s.position.set(D.cx+x,y0+0.05,fz+zz);group.add(s);});
+    [-D.w/2,D.w/2].forEach(x=>{const s=new THREE.Mesh(box(0.1,0.06,usedD),sel?M.strip:M.stripOff);s.position.set(D.cx+x,y0+0.05,fz);group.add(s);});
+    const corridors=[];
+    for(let p=0;p<pairsUsed;p++){const z0=D.back+1.2+p*D.pairD,cz=z0+D.RD+CORR/2;corridors.push(cz);
+      const c=new THREE.Mesh(box(D.w-1.6,0.03,CORR-0.2),M.corridor);c.position.set(D.cx,y0+0.02,cz);group.add(c);
+      const st=new THREE.Mesh(box(2.4,0.9,0.6),M.station);st.position.set(D.cx,y0+0.45,cz);group.add(st);
+      const sc2=new THREE.Mesh(box(0.6,0.35,0.05),M.screen);sc2.position.set(D.cx,y0+1.05,cz-0.1);group.add(sc2);}
+    const T=D,isOR=D.type==="or",curtain=D.type==="ed"||D.type==="pacu";
+    const I={floor:inst(box(T.RW-0.08,0.04,T.RD-0.08),M.floor,n),back:inst(box(T.RW,H,0.1),M.wall,n),
+      side:inst(box(0.1,H,T.RD),curtain?M.curtain:M.wall,n),end:inst(box(0.1,H,T.RD),curtain?M.curtain:M.wall,n),
+      win:inst(box(T.RW*0.55,0.5,0.03),M.window,curtain||isOR?0:n),dome:inst(box(0.28,0.12,0.12),M.dome,n)};
+    const occLike=s=>["occ","dis","edpt","board","pacuOcc"].includes(s);
+    const bedN=isOR?0:n;
+    Object.assign(I,{frame:inst(box(1.1,0.22,2.1),M.frame,bedN),mat:inst(box(1,0.16,1.95),M.mattress,bedN),pil:inst(box(0.7,0.12,0.34),M.pillow,bedN),head:inst(box(1.1,0.7,0.08),M.head,bedN),scr:inst(box(0.45,0.32,0.05),M.screen,bedN)});
+    const cnt=s=>status.filter(x=>x===s).length;
+    const bl={occ:inst(box(0.92,0.14,1.2),M.blanket,cnt("occ")+cnt("pacuOcc")),dis:inst(box(0.92,0.14,1.2),M.blanketDis,cnt("dis")),edpt:inst(box(0.92,0.14,1.2),M.blanketEd,cnt("edpt")),board:inst(box(0.92,0.14,1.2),M.blanketBoard,cnt("board"))};const bc={occ:0,dis:0,edpt:0,board:0};
+    let fa,fb,bw1,bw2,bfl,toi,sink,chair,glass,vent,orT,orL,orLo,anes,drape,orFa,orFb;
+    if(T.bath){fa=inst(box(1.3,H,0.1),M.wall,n);fb=inst(box(T.RW-2.3,H,0.1),M.wall,n);bw1=inst(box(0.08,H,1.4),M.wall,n);bw2=inst(box(0.6,H,0.08),M.wall,n);
+      bfl=inst(box(1.2,0.03,1.3),M.bath,n);toi=inst(box(0.36,0.4,0.5),M.porcelain,n);sink=inst(box(0.42,0.1,0.34),M.porcelain,n);chair=inst(box(0.5,0.5,0.5),M.chair,n);}
+    if(T.front==="glass"){glass=inst(box(T.RW,H,0.05),M.glass,n);vent=inst(box(0.45,1.0,0.45),M.vent,n);}
+    if(isOR){const live=cnt("orUse");orT=inst(box(0.8,0.85,2.2),M.orTable,n);orL=inst(new THREE.CylinderGeometry(0.75,0.75,0.12,20),M.orLight,live);orLo=inst(new THREE.CylinderGeometry(0.75,0.75,0.12,20),M.orLightOff,n-live);
+      anes=inst(box(0.7,1.3,0.6),M.anes,n);drape=inst(box(0.9,0.12,1.6),M.drape,live);orFa=inst(box(2.0,H,0.1),M.wall,n);orFb=inst(box(2.0,H,0.1),M.wall,n);}
+    const rooms=[],R=rng(hashStr(W[S.wi].w+zid+"r"));let ei=0,li=0,lo=0,di=0;
+    function put(m,i,b,lx,y,lz){const s=b.side?-1:1;tmp.position.set(b.x+s*lx,y0+y,b.z+s*lz);tmp.rotation.set(0,b.side?Math.PI:0,0);tmp.updateMatrix();m.setMatrixAt(i,tmp.matrix);}
+    // nurse assignment: occupied rooms in order, `target` patients per RN
+    const sr=staffRow(z.unit),perRN=sr?Math.max(1,sr.census/Math.max(1,sr.on)):1;let occSeen=0;
+    for(let i=0;i<n;i++){
+      const b=roomPos(D,i),st=status[i],RW=T.RW,RD=T.RD,bx=T.bedX,bz=-RD/2+1.3;
+      put(I.floor,i,b,0,0.04,0);I.floor.setColorAt(i,C(ST[st].floor));
+      put(I.back,i,b,0,H/2,-RD/2);put(I.side,i,b,-RW/2,H/2,0);
+      if(b.c===D.cols-1||i===n-1)put(I.end,ei++,b,RW/2,H/2,0);
+      if(!curtain&&!isOR)put(I.win,i,b,0,1.0,-RD/2+0.07);
+      const domeX=T.bath?-RW/2+1.3+0.5:RW/2-0.6;put(I.dome,i,b,domeX,H+0.1,RD/2+0.06);I.dome.setColorAt(i,C(ST[st].dome));
+      if(!isOR){put(I.frame,i,b,bx,0.35,bz);put(I.mat,i,b,bx,0.54,bz);put(I.pil,i,b,bx,0.68,bz-0.75);put(I.head,i,b,bx,0.75,-RD/2+0.2);put(I.scr,i,b,bx+0.75,1.3,-RD/2+0.09);
+        const key=st==="pacuOcc"?"occ":st;if(bl[key])put(bl[key],bc[key]++,b,bx,0.66,bz+0.25);}
+      if(T.bath){put(fa,i,b,-RW/2+0.65,H/2,RD/2);put(fb,i,b,-RW/2+2.3+(RW-2.3)/2,H/2,RD/2);
+        put(bw1,i,b,-RW/2+1.3,H/2,RD/2-0.7);put(bw2,i,b,-RW/2+0.3,H/2,RD/2-1.4);
+        put(bfl,i,b,-RW/2+0.65,0.07,RD/2-0.7);put(toi,i,b,-RW/2+0.3,0.22,RD/2-0.35);put(sink,i,b,-RW/2+0.95,0.6,RD/2-1.15);put(chair,i,b,RW/2-0.45,0.27,0.2);}
+      if(glass){put(glass,i,b,0,H/2,RD/2);put(vent,i,b,RW/2-0.55,0.5,-RD/2+0.9);}
+      if(isOR){put(orT,i,b,0,0.45,0);put(anes,i,b,-0.2,0.65,-RD/2+0.8);put(orFa,i,b,-RW/2+1.0,H/2,RD/2);put(orFb,i,b,RW/2-1.0,H/2,RD/2);
+        if(st==="orUse"){put(orL,li++,b,0,H+0.4,0);put(drape,di++,b,0,0.94,0.1);}else put(orLo,lo++,b,0,H+0.4,0);}
+      let rn=null;if(occLike(st)||st==="orUse"){rn=Math.floor(occSeen/perRN)+1;occSeen++;}
+      rooms.push({i,x:b.x,z:b.z,y:y0,status:st,flex:i>=nStaffRooms,day:(st==="occ"||st==="dis")?1+Math.floor(-Math.log(1-R()*0.98)*(unitDef(z.unit)?.alos||4)):null,acu:R(),rn,
+        num:`${PFX[zid]}-${b.pair+1}${b.side?"B":"A"}-${String(b.c+1).padStart(2,"0")}`});
+    }
+    I.end.count=ei;
+    [...Object.values(I),...Object.values(bl),fa,fb,bw1,bw2,bfl,toi,sink,chair,glass,vent,orT,orL,orLo,anes,drape,orFa,orFb].filter(Boolean).forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});
+    I.floor.userData={zone:zid,lv:z.lv};pickMeshes.push(I.floor);
+    // nurses on duty: one figure per `sc` RNs, spread along corridors
+    const rnCount=sr?Math.min(60,Math.round(sr.on*(z.unit==="medsurg"?0.5:1)/sc)):0;
+    if(rnCount>0){const body=inst(new THREE.CylinderGeometry(0.2,0.24,0.95,10),M.scrub,rnCount),headM=inst(new THREE.SphereGeometry(0.17,10,8),M.skin,rnCount);
+      for(let i=0;i<rnCount;i++){const cz=corridors[i%corridors.length],k=Math.floor(i/corridors.length),slots=Math.max(1,Math.ceil(rnCount/corridors.length));
+        const x=D.left+1.5+(k+0.5)/slots*(D.w-3)+(k%2?0.4:-0.4),zz=cz+((i%2)?0.55:-0.55);
+        tmp.rotation.set(0,0,0);tmp.position.set(x,y0+0.5,zz);tmp.updateMatrix();body.setMatrixAt(i,tmp.matrix);tmp.position.set(x,y0+1.15,zz);tmp.updateMatrix();headM.setMatrixAt(i,tmp.matrix);}
+      body.instanceMatrix.needsUpdate=headM.instanceMatrix.needsUpdate=true;}
+    if(nOver>0){const sf=inst(box(1.1,0.22,2.1),M.frame,nOver),sb=inst(box(0.92,0.14,1.2),M.over,nOver),cz=corridors[0];
+      for(let i=0;i<nOver;i++){const xx=D.left+1.5+((i*1.25)%(D.w-3)),zz=cz+0.9+Math.floor(i*1.25/(D.w-3))*D.pairD;
+        tmp.position.set(xx,y0+0.35,zz);tmp.rotation.set(0,Math.PI/2,0);tmp.updateMatrix();sf.setMatrixAt(i,tmp.matrix);tmp.position.y=y0+0.55;tmp.updateMatrix();sb.setMatrixAt(i,tmp.matrix);}
+      sf.instanceMatrix.needsUpdate=sb.instanceMatrix.needsUpdate=true;}
+    zones[zid]={rooms,sc,stats,fz,fd:usedD,nOver,sr};
+    const lab=labelEls[zid].querySelector("span");lab.textContent=fmt(stats.pct)+"%";lab.style.color=pctColor(stats.pct);labelEls[zid].classList.toggle("sel",sel);
+  }
+  function zoneTip(zid){
+    const z=zoneOf(zid),sr=STF&&staffRow(z.unit),sh=SHIFTS[S.shift];
+    const rnLine=sr?row(`RNs on duty (${sh.n})`,`${sr.on} · 1:${fmt(sr.ratio,1)} vs 1:${sr.target}`):"";
+    if(z.unit==="ed"){const d=S.model.days[S.day];return `<b>Emergency Dept · L1 · ${DAYS[S.day]} ${sh.n}</b>${row("Arrivals / day",fmt(d.arrivals))}${row("In ED this shift",fmt(zones.ed?.stats.inED||d.inED))}${row("Boarders",fmt(d.board))}${row("Treatment spaces",S.edSpaces)}${rnLine}<em>Click to fly to the ED</em>`;}
+    if(z.unit==="or"||z.unit==="pacu"){const g=STF.sg;return `<b>${ZN[zid]} · L2 · ${DAYS[S.day]} ${sh.n}</b>${row("Cases today",fmt(g.cases))}${row("ORs staffed",g.staffed+" of "+OR_ROOMS)}${row("ORs running",fmt(g.inUse))}${row("OR utilization",fmt(g.util)+"%")}${row("PACU patients",fmt(g.pacu)+" / "+g.pacuStaffed+" bays")}${rnLine}<em>Click to fly to Surgery</em>`;}
+    return unitTip(z.unit).replace("</b>",` · L${z.lv}</b>`).replace("<em>",rnLine+"<em>");}
+  function header(){
+    const fz=S.focusZone;
+    if(fz==="ed"){const d=S.model.days[S.day];$("unitName").textContent="Emergency Dept";$("scaleNote").textContent=`L1 · 1 bay = ${SCALE.ed} spaces · ${DAYS[S.day]} ${SHIFTS[S.shift].n} · ${fmt(zones.ed.stats.inED)} in treatment, ${fmt(d.board)} boarding`;return;}
+    if(fz==="or"||fz==="pacu"){const g=STF.sg;$("unitName").textContent="Surgery";$("scaleNote").textContent=`L2 · ${DAYS[S.day]} ${SHIFTS[S.shift].n} · ${fmt(g.inUse)} of ${g.staffed} staffed ORs running · PACU ${fmt(g.pacu)}/${g.pacuStaffed}`;return;}
+    const p=project(S.unit,S.wi),sc=SCALE[S.unit==="medsurg"?"msA":S.unit],lv=ZDEF.find(z=>z.unit===S.unit).lv;
+    $("scaleNote").textContent=`L${lv}${S.unit==="medsurg"?"–5":""} · ${sc>1?`1 room = ${sc} beds`:"1 room = 1 bed"} · ${DAYS[S.day]} ${SHIFTS[S.shift].n} · ${fmt(p.census)} pts / ${fmt(p.cap)} staffed`;}
+  function applyFloorVisibility(){
+    const f=S.floor;LEVELS.forEach(L=>{const vis=!f||L.lv<=f;levelStatic[L.lv].visible=vis;levelEls[L.lv].classList.toggle("sel",L.lv===f);
+      levelStatic[L.lv].userData.edge.material.color.set(L.lv===f?0xff5b1f:0x4a4b52);});
+    const roofVis=!f;[levelStatic.roof,levelStatic.ring,...levelStatic.h].forEach(m=>m.visible=roofVis);
+    if(group)group.children.forEach(o=>{const lv=o.userData.lv;if(lv)o.visible=!f||lv<=f;});
+    document.querySelectorAll("#floorBtns button").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.f===f)));
+  }
+  function update(){
+    STF=staffing(S.shift);
+    if(group){scene.remove(group);group.traverse(o=>{if(o.isInstancedMesh&&o.dispose)o.dispose();});}
+    group=new THREE.Group();scene.add(group);zones={};pickMeshes=[];floorMeshes=[];const cache={};
+    ZDEF.forEach(z=>{const sub=new THREE.Group();sub.userData.lv=z.lv;const g0=group;group=sub;buildZone(z.id,cache);group=g0;group.add(sub);});
+    applyFloorVisibility();header();
+    const pct=zones[ZDEF.find(z=>z.unit===S.unit).id].stats.pct;rim.color.set(pct>=100?0xff2d2d:0xff5b1f);
+    hoverBox.visible=false;if(pinned){const r=zones[pinned.zone]?.rooms[pinned.i];if(r)showCard(pinned.zone,r);else closeCard();}
+  }
+  let fly=null;
+  function flyTo(target,pos){const t0=performance.now(),dur=reduce?1:950,ft=ctl.target.clone(),fp=cam.position.clone();fly=now=>{const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,3);ctl.target.lerpVectors(ft,target,e);cam.position.lerpVectors(fp,pos,e);if(k>=1)fly=null;};}
+  function fitDist(size){const f=Math.tan(cam.fov*Math.PI/360);return size*0.5/f/Math.min(1,cam.aspect)*1.05;}
+  const VIEWDIR=new THREE.Vector3(0.38,0.78,0.86).normalize();
+  function focusZone(zid){const D=DIM[zid],Z=zones[zid]||{fz:D.back+D.d/2,fd:D.d},z=zoneOf(zid);S.floor=z.lv;applyFloorVisibility();
+    const tgt=new THREE.Vector3(D.cx,D.y,Z.fz);flyTo(tgt,tgt.clone().add(VIEWDIR.clone().multiplyScalar(fitDist(Math.max(D.w,Z.fd)*0.85))));setView("unit");}
+  function focus(k){const zid=ZDEF.find(z=>z.unit===k||z.id===k).id;if(["ed","or","pacu"].includes(zid)){S.focusZone=zid;}else if(S.focusZone){S.focusZone=null;render();}focusZone(zid);header();}
+  function clickZone(zid){const z=zoneOf(zid);if(["ed","or","pacu"].includes(z.unit)){S.focusZone=zid;update();focusZone(zid);}else{selectUnit(z.unit,false);focusZone(zid);}}
+  function focusLevel(lv){S.floor=lv;applyFloorVisibility();const t=new THREE.Vector3(0,(lv-1)*FH,0);flyTo(t,t.clone().add(VIEWDIR.clone().multiplyScalar(fitDist(Math.max(footW,footD)*0.95))));setView("unit");}
+  const OVERDIR=new THREE.Vector3(0.62,0.4,0.78).normalize();
+  function overview(){S.floor=0;applyFloorVisibility();const t=new THREE.Vector3(0,LEVELS.length*FH*0.45,0);flyTo(t,t.clone().add(OVERDIR.clone().multiplyScalar(fitDist(Math.max(footW,footD,LEVELS.length*FH)*1.1))));setView("hosp");}
+  function setView(v){$("vHosp").setAttribute("aria-pressed",v==="hosp");$("vUnit").setAttribute("aria-pressed",v==="unit");}
+  $("vHosp").onclick=overview;$("vUnit").onclick=()=>focus(S.focusZone||S.unit);
+  $("vSpin").onclick=()=>{ctl.autoRotate=!ctl.autoRotate;$("vSpin").setAttribute("aria-pressed",ctl.autoRotate);};
+  {const fb=$("floorBtns");[...LEVELS].reverse().forEach(L=>{const b=document.createElement("button");b.type="button";b.dataset.f=L.lv;b.textContent=L.lv;b.title=`Level ${L.lv} · ${L.n}`;b.setAttribute("aria-label",`Level ${L.lv}, ${L.n}`);b.onclick=()=>focusLevel(L.lv);
+    b.onmousemove=e=>showTip(e,`<b>Level ${L.lv} · ${L.n}</b>${ZDEF.filter(z=>z.lv===L.lv).map(z=>row(ZS[z.id],zones[z.id]?fmt(zones[z.id].stats.pct)+"%":"")).join("")}<em>Click to open this floor; floors above are lifted away</em>`);b.onmouseleave=hideTip;fb.appendChild(b);});
+    const all=document.createElement("button");all.type="button";all.dataset.f=0;all.textContent="All";all.onclick=overview;fb.appendChild(all);}
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downAt=null,pinned=null,hoverZone=null;
+  const visibleLv=o=>!S.floor||o.userData.lv<=S.floor;
+  function pick(e){const r=canvas.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mouse,cam);
+    const hb=ray.intersectObjects(pickMeshes.filter(visibleLv),false)[0];if(hb)return{type:"room",zone:hb.object.userData.zone,i:hb.instanceId};
+    const hf=ray.intersectObjects(floorMeshes.filter(visibleLv),false)[0];if(hf)return{type:"zone",zone:hf.object.userData.zone};return null;}
+  const ACU={icu:["Ventilated","On pressors","Post-op cardiac","Step-down ready","Sepsis protocol"],picu:["NICU · preterm","Ventilated","High-flow O₂","Post-op","Step-down ready"],medsurg:["Post-op","Medical","Telemetry","Awaiting placement","Oncology"],peds:["Bronchiolitis","Respiratory","Post-op","Medical","Asthma"],ed:["Chest pain","Abdominal pain","Trauma","Shortness of breath","Neuro / stroke alert"],or:["General surgery","Orthopedics","Cardiac","Neurosurgery","Trauma (emergent)"],pacu:["Post-anesthesia, phase I","Post-op orthopedics","Post-op general","Awaiting ICU bed","Same-day discharge"]};
+  function roomHtml(zid,r){const z=zoneOf(zid),D=DIM[zid],alos=unitDef(z.unit)?.alos||4,st=ST[r.status],sr=zones[zid].sr;
+    const busy=["occ","dis","edpt","board","pacuOcc","orUse"].includes(r.status),ac=busy?ACU[z.unit][Math.floor(r.acu*ACU[z.unit].length)]:null;
+    const edd=r.status==="occ"?Math.max(1,Math.round(alos*1.2-r.day)):r.status==="dis"?0:null;
+    const rnTxt=r.rn&&sr?`RN-${String(r.rn).padStart(2,"0")} · load 1:${fmt(sr.ratio,1)} <span style="color:${ratioColor(sr)}">(target 1:${sr.target})</span>`:null;
+    return {title:`Room ${r.num}${SCALE[zid]>1?` <small style="color:var(--ink-3)">(×${SCALE[zid]})</small>`:""}`,
+      rows:row("Unit",`${ZN[zid]} · L${z.lv}`)+row("Type",ROOMTYPE[D.type])+row("Status",`<span style="color:#${new THREE.Color(st.dome).getHexString()}">${st.label}</span>`)+(r.flex&&!["ed","or","pacu"].includes(z.unit)?row("Capacity","Flex room (what-if)"):"")+
+        (ac?row(z.unit==="ed"?"Complaint":z.unit==="or"?"Service":"Clinical group",ac):"")+(r.day?row("Day of stay",r.day):"")+(edd!=null?row("Days to discharge",edd===0?"Today":edd):"")+
+        (r.status==="board"?row("Waiting for","Inpatient room"):"")+(rnTxt?row(z.unit==="or"?"Circulating RN":"Assigned RN",rnTxt):"")};}
+  function showCard(zid,r){const h=roomHtml(zid,r);card.innerHTML=`<header><b>${h.title}</b><button type="button" aria-label="Close room detail">×</button></header>${h.rows}<em>Illustrative room-level detail generated from real unit totals and the staffing model.</em>`;card.hidden=false;card.querySelector("button").onclick=closeCard;
+    const D=DIM[zid];hoverBox.scale.set(D.RW,H+0.4,D.RD);hoverBox.position.set(r.x,r.y+H/2,r.z);hoverBox.visible=true;}
+  function closeCard(){card.hidden=true;pinned=null;hoverBox.visible=false;}
+  canvas.addEventListener("pointermove",e=>{if(e.buttons){hideTip();return;}const h=pick(e);canvas.classList.toggle("hot",!!h);
+    if(h&&h.type==="room"){const r=zones[h.zone].rooms[h.i];const x=roomHtml(h.zone,r);showTip(e,`<b>${x.title}</b>${x.rows}<em>Click to pin</em>`);
+      if(!pinned){const D=DIM[h.zone];hoverBox.scale.set(D.RW,H+0.4,D.RD);hoverBox.position.set(r.x,r.y+H/2,r.z);hoverBox.visible=true;}}
+    else if(h&&h.type==="zone"){showTip(e,zoneTip(h.zone));if(!pinned)hoverBox.visible=false;}
+    else{hideTip();if(!pinned)hoverBox.visible=false;}
+    const z=h?h.zone:null;if(z!==hoverZone){hoverZone=z;Object.entries(labelEls).forEach(([k,el])=>el.style.borderColor=k===z?"var(--ink-2)":"");}});
+  canvas.addEventListener("pointerleave",()=>{hideTip();if(!pinned)hoverBox.visible=false;});
+  canvas.addEventListener("pointerdown",e=>{downAt=[e.clientX,e.clientY];ctl.autoRotate=false;$("vSpin").setAttribute("aria-pressed","false");});
+  canvas.addEventListener("pointerup",e=>{if(!downAt)return;const moved=Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1]);downAt=null;if(moved>5)return;
+    const h=pick(e);if(!h){closeCard();return;}
+    if(h.type==="room"){pinned={zone:h.zone,i:h.i};const u=zoneOf(h.zone).unit;if(!["ed","or","pacu"].includes(u)&&S.unit!==u){S.unit=u;S.scen=null;S.focusZone=null;render();}showCard(h.zone,zones[h.zone].rooms[h.i]);}
+    else{closeCard();clickZone(h.zone);}});
+  function resize(){const r=host.getBoundingClientRect();if(!r.width||!r.height)return;renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(host);resize();
+  const v=new THREE.Vector3();
+  (function loop(now){requestAnimationFrame(loop);if(document.hidden)return;if(fly)fly(now);ctl.update();renderer.render(scene,cam);
+    const r=canvas.getBoundingClientRect();
+    ZDEF.forEach(z=>{const D=DIM[z.id],el=labelEls[z.id];if(S.floor&&z.lv>S.floor){el.style.display="none";return;}
+      v.set(D.cx,D.y+2.6,D.back);v.project(cam);if(v.z>1||Math.abs(v.x)>1.1||Math.abs(v.y)>1.1){el.style.display="none";return;}
+      el.style.display="";el.style.left=((v.x+1)/2*r.width)+"px";el.style.top=((1-v.y)/2*r.height)+"px";});
+    LEVELS.forEach(L=>{const el=levelEls[L.lv];if(S.floor&&L.lv>S.floor){el.style.display="none";return;}
+      v.set(-footW/2-3,(L.lv-1)*FH+0.4,footD/2+3);v.project(cam);if(v.z>1||Math.abs(v.x)>1.1||Math.abs(v.y)>1.1){el.style.display="none";return;}
+      el.style.display="";el.style.left=((v.x+1)/2*r.width)+"px";el.style.top=((1-v.y)/2*r.height)+"px";});})(0);
+  setTimeout(overview,50);
+  return{update,focus};
+})();
+
+// ================= AI ANALYST =================
+const log=$("log"),q2=$("q"),send=$("send"),live=$("live"),liveTxt=$("liveTxt");
+const QUALITY={cms_overall_rating:"5 of 5",hybrid_hospital_wide_readmission_pct:15.0,hybrid_hospital_wide_mortality_pct:1.8,sepsis_SEP1_pct:55,septic_shock_3hr_bundle_pct:66,PSI90_composite:0.98,PSI12_periop_PE_DVT:"4.94 (worse than national)",ED_median_stay_OP18b_min:298,left_without_being_seen_pct:4,hcahps_would_recommend:94,hcahps_communication_about_medicines:"74 (2 stars)",readmission_measures_worse_than_national:"4 of 11",mortality_measures_better:"6 of 8"};
+function snapshot(){const w=W[S.wi],units={};UNITS.forEach(u=>{const b=SERIES[u.k][S.wi];units[u.n]={staffed_beds:+b.beds.toFixed(1),occupied:+b.occ.toFixed(1),occupancy_pct:+b.pct.toFixed(1)};});
+  const p=project(S.unit,S.wi);
+  return {week_of:w.w,hospital:{inpatient_beds:w.ib,inpatient_used:w.iu,occupancy_pct:+(w.iu/w.ib*100).toFixed(1),covid_inpatients:w.cov,covid_icu:w.covicu,ed_visits_week:w.ed},units,selected_unit:unitDef(S.unit).n,
+    levers:{demand_pct:S.lv.demand,staffed_beds_lost_pct:S.lv.staff,los_change_pct:S.lv.los,flex_beds:S.lv.flex},
+    projection_for_selected:{census:+p.census.toFixed(1),capacity:+p.cap.toFixed(1),occupancy_pct:+p.pct.toFixed(1),beds_short:+p.short.toFixed(1)},
+    computed_insights:buildInsights().map(x=>x.h+". "+x.p),
+    nurse_staffing:{day:DAYS[S.day],selected_shift:SHIFTS[S.shift].n,targets:TARGET,
+      by_shift:SHIFTS.map((sh,i)=>({shift:sh.n,hours:sh.h,units:staffing(i).rows.map(r=>({unit:r.n,load:+r.census.toFixed(1),rns_on_duty:r.on,rns_needed:r.need,per_rn:+r.ratio.toFixed(2),target:r.target}))})),
+      surgery:(()=>{const g=staffing(S.shift).sg;return{cases_today:+g.cases.toFixed(0),or_staffed:g.staffed,or_running:+g.inUse.toFixed(1),or_utilization_pct:+g.util.toFixed(0),pacu_patients:+g.pacu.toFixed(1)};})(),
+      assumptions:"RN schedules, shift fill rates (Day 100/Evening 94/Night 86%), 56 ORs, 44 PACU bays and surgical volume ratios are assumptions; census is real HHS data."},
+    ed_admission_model:{assumptions:{ed_admit_rate_pct:S.admitRate,ed_treatment_spaces:S.edSpaces,median_ed_stay_min:ED_LOS_MIN,note:"Day-of-week profiles are typical published patterns applied to the real weekly ED total; ED spaces and admit rate are assumptions."},
+      ed_visits_week:S.model.ed.v,ed_visits_reported_this_week:S.model.ed.exact,
+      days:S.model.days.map(d=>({day:d.name,ed_arrivals:+d.arrivals.toFixed(0),in_ed:+d.inED.toFixed(0),ed_occupancy_pct:+d.edOcc.toFixed(0),admit_requests:+d.edAdmits.toFixed(0),rooms_available_for_admission:+d.avail.toFixed(0),admission_demand:+d.demand.toFixed(0),net_rooms:+d.net.toFixed(0)}))}};}
+const RULES=`You are the AI analyst inside a hospital operations dashboard, acting as a senior healthcare data scientist. The data is real public data for Massachusetts General Hospital (CCN 220071): HHS weekly bed-capacity reporting (7-day averages, Sep 2020–Apr 2024) and CMS Care Compare quality measures. Unit figures are derived from those fields. Lever values are hypothetical what-ifs on the real week; forecasts are damped Holt trend models.
+Lead with the answer, cite the numbers you used, give 2-4 concrete operational recommendations when relevant, and flag uncertainty and data limits. Under 180 words. Plain text, short paragraphs or "- " bullets, no tables, no headings.
+If the user asks to see, run, simulate or compare a scenario, call run_scenario so the dashboard updates, then explain the result. Use get_unit_history for trends.
+Quality measures: ${JSON.stringify(QUALITY)}`;
+let turns=[],sample=null,ctl=null,canTools=false,busy=false;
+const TOOLS=[
+  {name:"run_scenario",description:"Set the dashboard to a reporting week, unit and what-if levers, then return the dashboard state including the projection for that unit. Omitted levers reset to 0.",
+   inputSchema:{type:"object",properties:{week:{type:"string",description:"YYYY-MM-DD; nearest reported week is used"},unit:{type:"string",enum:UNITS.map(u=>u.k)},demand_pct:{type:"number"},staffed_beds_lost_pct:{type:"number"},los_change_pct:{type:"number"},flex_beds:{type:"number"}},required:["unit"]},
+   execute(i){
+     if(i.week){const t=new Date(String(i.week)).getTime();if(!isNaN(t)){let best=0,bd=1e18;W.forEach((w,k)=>{const d=Math.abs(new Date(w.w).getTime()-t);if(d<bd){bd=d;best=k;}});S.wi=best;}}
+     const u=String(i.unit);if(!unitDef(u))throw new Error("Unknown unit "+u);S.unit=u;
+     const c=(v,lo,hi)=>Math.max(lo,Math.min(hi,Math.round(Number(v)||0)));
+     S.lv={demand:c(i.demand_pct,-30,50),staff:c(i.staffed_beds_lost_pct,0,30),los:c(i.los_change_pct,-25,25),flex:c(i.flex_beds,0,80)};
+     S.scen=null;syncLevers();render();ward3d.focus(u);addSys(`Dashboard set: ${unitDef(u).n}, week of ${fmtDate(W[S.wi].w)}`);
+     return snapshot();}},
+  {name:"get_unit_history",description:"Return monthly average occupancy % and staffed beds for one unit across all reported weeks.",
+   inputSchema:{type:"object",properties:{unit:{type:"string",enum:UNITS.map(u=>u.k)}},required:["unit"]},
+   execute(i){const u=unitDef(String(i.unit));if(!u)throw new Error("Unknown unit");const m={};
+     W.forEach((w,j)=>{const k=w.w.slice(0,7),b=SERIES[u.k][j];(m[k]=m[k]||[]).push([b.pct,b.beds]);});
+     return Object.entries(m).map(([k,a])=>({month:k,occ_pct:+(a.reduce((s,x)=>s+x[0],0)/a.length).toFixed(1),beds:Math.round(a.reduce((s,x)=>s+x[1],0)/a.length)}));}}
+];
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function fmtAI(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");}
+function addMsg(cls,html){const d=document.createElement("div");d.className="msg "+cls;d.innerHTML=html;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+function addSys(t){addMsg("sys",esc(t));}
+const SUG=["Where is the bottleneck this week?","Which unit is most understaffed on nights?","Run the Omicron peak with 15% ICU nurse call-outs","How reliable is the 8-week forecast?","Which quality measures need attention?"];
+const chips=$("chips");SUG.forEach(s=>{const b=document.createElement("button");b.type="button";b.textContent=s;b.onclick=()=>{q2.value=s;ask();};chips.appendChild(b);});
+const ERR={not_granted:"The AI analyst needs your permission to use Claude in this page.",sampling_disabled:"Claude isn't available for this account.",rate_limited:"Too many questions at once. Wait a moment and ask again.",session_expired:"Sign in to claude.ai again to use the analyst.",refused:"I can't answer that one. Try rephrasing.",prompt_too_large:"That conversation got too long. Reload to start fresh."};
+async function ask(){
+  const text=q2.value.trim();if(!text||busy)return;
+  if(!sample){addSys("The AI analyst runs only when this page is opened in Claude.");return;}
+  q2.value="";busy=true;send.textContent="Stop";addMsg("me",esc(text));
+  turns.push({role:"user",content:text});turns=turns.slice(-10);
+  const bubble=addMsg("ai","Thinking…");ctl=new AbortController();
+  const input=[{role:"user",content:RULES+"\n\nCurrent dashboard state: "+JSON.stringify(snapshot())},{role:"assistant",content:"Understood. I have the dashboard state."},...turns];
+  try{
+    const opts={signal:ctl.signal,onText:({text})=>{bubble.innerHTML=fmtAI(text);log.scrollTop=log.scrollHeight;}};
+    if(canTools)opts.tools=TOOLS;else opts.cache=false;
+    const r=await sample(input,opts);
+    bubble.innerHTML=fmtAI(r.text);turns.push({role:"assistant",content:r.text});
+  }catch(e){
+    if(e&&e.text)bubble.innerHTML=fmtAI(e.text);else bubble.remove();
+    if(e&&e.code!=="cancelled")addSys(ERR[e.code]||"The analyst hit a connection problem. Ask again.");
+    if(e&&(e.code==="not_granted"||e.code==="sampling_disabled")){live.className="live";liveTxt.textContent="Unavailable";}
+    turns.pop();
+  }finally{busy=false;send.textContent="Ask";ctl=null;}
+}
+$("composer").addEventListener("submit",e=>{e.preventDefault();if(busy&&ctl){ctl.abort();return;}ask();});
+q2.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(!busy)ask();}});
+(async()=>{
+  try{sample=window.claude?await window.claude.use("sample"):null;}catch(_){sample=null;}
+  if(sample){live.className="live on";liveTxt.textContent="Claude connected";try{const l=await sample.limits();canTools=!!l.tools;}catch(_){canTools=false;}}
+  else{liveTxt.textContent="Open in Claude to chat";}
+})();
+
+applyScenario("latest");
+})();
+</script>
